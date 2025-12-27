@@ -40,6 +40,19 @@ servers:
     known_hosts: ~/.ssh/known_hosts
 ```
 
+### Tasks and Defaults
+
+Tasks run with built-in defaults even if you provide no task configuration. You can override task settings per server:
+
+```yaml
+servers:
+  - name: web-1
+    address: 1.2.3.4
+    user: root
+    tasks: {}
+```
+Task defaults live in `internal/task/defaults` as YAML.
+
 ## Usage
 
 Use the `--help` flag to see all available commands and options:

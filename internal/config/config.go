@@ -13,11 +13,12 @@ type Config struct {
 }
 
 type ServerConfig struct {
-	Name           string `yaml:"name"`
-	Address        string `yaml:"address"`
-	User           string `yaml:"user"`
-	SSHKey         string `yaml:"ssh_key"`
-	KnownHostsPath string `yaml:"known_hosts"`
+	Name           string         `yaml:"name"`
+	Address        string         `yaml:"address"`
+	User           string         `yaml:"user"`
+	SSHKey         string         `yaml:"ssh_key"`
+	KnownHostsPath string         `yaml:"known_hosts"`
+	Tasks          map[string]any `yaml:"tasks"`
 }
 
 // Load the configuration from the given file or default locations.
@@ -33,7 +34,7 @@ func Load(cfgFile string) (*Config, error) {
 		if err != nil {
 			return nil, fmt.Errorf("failed to get absolute path for %s: %w", path, err)
 		}
-		c.WithProviders(&goconfig.Yaml{Path: absPath}, &goconfig.Env{Prefix: "SETTLED"})
+		c.WithProviders(&goconfig.Yaml{Path: absPath})
 	}
 
 	c.WithProviders(&goconfig.Env{Prefix: "SETTLED"})

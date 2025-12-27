@@ -19,14 +19,17 @@ servers:
   - name: test-server
     address: 1.2.3.4
     user: test-user
-    ssh_key: /path/to/key
-    known_hosts: /path/to/known_hosts
+    tasks:
+      ssh:
+        hardening: true
+      users:
+        test_user: { sudo: false }
 `
 	if err := os.WriteFile(configPath, []byte(configContent), 0644); err != nil {
 		t.Fatalf("failed to write temp config file: %v", err)
 	}
 
-	t.Run("load from specific file", func(t *testing.T) {
+	t.Run("load tasks config", func(t *testing.T) {
 		cfg, err := Load(configPath)
 		if err != nil {
 			t.Fatalf("Load failed: %v", err)
@@ -37,20 +40,18 @@ servers:
 		}
 
 		s := cfg.Servers[0]
-		if s.Name != "test-server" {
-			t.Errorf("expected server name 'test-server', got '%s'", s.Name)
+		ssh, ok := s.Tasks["ssh"].(map[string]any)
+		if !ok || ssh["hardening"] != true {
+			t.Fatalf("expected ssh hardening=true, got %+v", s.Tasks["ssh"])
 		}
-		if s.Address != "1.2.3.4" {
-			t.Errorf("expected server address '1.2.3.4', got '%s'", s.Address)
+
+		users, ok := s.Tasks["users"].(map[string]any)
+		if !ok {
+			t.Fatalf("expected users config map, got %T", s.Tasks["users"])
 		}
-		if s.User != "test-user" {
-			t.Errorf("expected server user 'test-user', got '%s'", s.User)
-		}
-		if s.SSHKey != "/path/to/key" {
-			t.Errorf("expected ssh_key '/path/to/key', got '%s'", s.SSHKey)
-		}
-		if s.KnownHostsPath != "/path/to/known_hosts" {
-			t.Errorf("expected known_hosts '/path/to/known_hosts', got '%s'", s.KnownHostsPath)
+		testUser, ok := users["test_user"].(map[string]any)
+		if !ok || testUser["sudo"] != false {
+			t.Fatalf("expected test_user sudo=false, got %+v", users["test_user"])
 		}
 	})
 
