@@ -53,6 +53,28 @@ servers:
 ```
 Task defaults live in `internal/task/defaults` as YAML.
 
+### Bootstrapping the Initial Sudo User
+
+Use the `bootstrap` command to create your first sudo user using a privileged login (defaults to root). This command runs only the bootstrap task and does not execute the normal `configure` task set. It uses the configured server list, but does not require any task configuration in YAML.
+
+```bash
+./settle bootstrap --user deploy
+```
+
+By default, it copies the login user's `authorized_keys` to the new user. To provide keys explicitly:
+
+```bash
+./settle bootstrap --user deploy --authorized-key "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAA..."
+```
+
+Optional flags include `--login-user` (default `root`), `--group` (default `sudo`), and `--sudo-nopasswd`. When `--login-user` is not root, it must have passwordless sudo.
+
+Example with a non-root login:
+
+```bash
+./settle bootstrap --user deploy --login-user admin
+```
+
 ## Usage
 
 Use the `--help` flag to see all available commands and options:
@@ -66,6 +88,12 @@ To see details for a specific command:
 ```bash
 ./settle [command] --help
 ```
+
+## Tested Distributions
+
+Settled is currently tested on:
+
+- Ubuntu 24.04 (Noble Numbat)
 
 ## Testing
 

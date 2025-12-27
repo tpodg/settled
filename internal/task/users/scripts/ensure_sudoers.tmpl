@@ -1,0 +1,9 @@
+{{- define "ensure_sudoers" -}}
+{{- if .Sudo -}}
+{{- $sudoersFile := .SudoersFile -}}
+{{- $sudoersLine := .SudoersLine -}}
+printf '%s\n' {{ shellEscape $sudoersLine }} > {{ shellEscape $sudoersFile }}
+chmod 0440 {{ shellEscape $sudoersFile }}
+chown root:root {{ shellEscape $sudoersFile }}
+{{- end -}}
+{{- end -}}

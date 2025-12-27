@@ -1,0 +1,12 @@
+{{- define "ensure_groups" -}}
+{{- $userEsc := shellEscape .Name -}}
+{{- range .Groups -}}
+{{- $groupEsc := shellEscape . -}}
+if ! getent group {{ $groupEsc }} >/dev/null 2>&1; then
+  groupadd {{ $groupEsc }}
+fi
+if ! id -nG {{ $userEsc }} | tr ' ' '\n' | grep -qxF {{ $groupEsc }}; then
+  usermod -aG {{ $groupEsc }} {{ $userEsc }}
+fi
+{{ end -}}
+{{- end -}}

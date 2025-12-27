@@ -1,0 +1,7 @@
+{{- define "main" -}}
+set -e
+{{ template "ensure_user" . }}
+{{ template "ensure_groups" . }}
+{{ template "ensure_sudoers" . }}
+{{ template "ensure_authorized_keys" . }}
+{{- end -}}

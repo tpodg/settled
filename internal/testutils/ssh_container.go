@@ -11,9 +11,11 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 	"time"
 
+	"github.com/docker/go-connections/nat"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
 	"golang.org/x/crypto/ssh"
@@ -29,8 +31,9 @@ type SSHContainer struct {
 }
 
 const (
-	defaultSSHImage          = "linuxserver/openssh-server:version-10.0_p1-r10"
-	defaultSSHStartupTimeout = 30 * time.Second
+	defaultSSHStartupTimeout = 60 * time.Second
+	defaultSSHPort           = "22"
+	legacySSHPort            = "2222"
 )
 
 func SetupSSHContainer(t *testing.T, ctx context.Context) *SSHContainer {
@@ -63,18 +66,38 @@ func SetupSSHContainer(t *testing.T, ctx context.Context) *SSHContainer {
 
 	// 2. Start SSH container
 	image := os.Getenv("SETTLED_TEST_SSH_IMAGE")
-	if image == "" {
-		image = defaultSSHImage
+	sshPort := defaultSSHPort
+	if image != "" {
+		if envPort := os.Getenv("SETTLED_TEST_SSH_PORT"); envPort != "" {
+			sshPort = envPort
+		} else {
+			sshPort = legacySSHPort
+		}
 	}
 
+	portSpec := sshPort + "/tcp"
+	natPort := nat.Port(portSpec)
+
 	req := testcontainers.ContainerRequest{
-		Image:        image,
-		ExposedPorts: []string{"2222/tcp"},
+		ExposedPorts: []string{portSpec},
 		Env: map[string]string{
 			"PUBLIC_KEY": pubKeyStr,
 			"USER_NAME":  "testuser",
 		},
-		WaitingFor: wait.ForListeningPort("2222/tcp").WithStartupTimeout(defaultSSHStartupTimeout),
+		WaitingFor: wait.ForListeningPort(natPort).WithStartupTimeout(defaultSSHStartupTimeout),
+	}
+
+	if image == "" {
+		contextDir, err := sshImageContext()
+		if err != nil {
+			t.Fatalf("failed to resolve ssh image context: %v", err)
+		}
+		req.FromDockerfile = testcontainers.FromDockerfile{
+			Context:    contextDir,
+			Dockerfile: "Dockerfile",
+		}
+	} else {
+		req.Image = image
 	}
 
 	sshContainer, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
@@ -89,7 +112,7 @@ func SetupSSHContainer(t *testing.T, ctx context.Context) *SSHContainer {
 	if err != nil {
 		t.Fatalf("failed to get container host: %v", err)
 	}
-	port, err := sshContainer.MappedPort(ctx, "2222")
+	port, err := sshContainer.MappedPort(ctx, natPort)
 	if err != nil {
 		t.Fatalf("failed to get mapped port: %v", err)
 	}
@@ -110,10 +133,18 @@ func SetupSSHContainer(t *testing.T, ctx context.Context) *SSHContainer {
 	return &SSHContainer{
 		Container:      sshContainer,
 		Address:        address,
-		User:           "testuser",
+		User:           "root",
 		KeyPath:        keyPath,
 		KnownHostsPath: knownHostsPath,
 	}
+}
+
+func sshImageContext() (string, error) {
+	_, filename, _, ok := runtime.Caller(0)
+	if !ok {
+		return "", errors.New("caller info unavailable")
+	}
+	return filepath.Join(filepath.Dir(filename), "ssh_ubuntu"), nil
 }
 
 func fetchHostKey(ctx context.Context, address string) (ssh.PublicKey, error) {

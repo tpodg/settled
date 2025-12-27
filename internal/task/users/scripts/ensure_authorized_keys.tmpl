@@ -1,0 +1,18 @@
+{{- define "ensure_authorized_keys" -}}
+{{- if .AuthorizedKeys -}}
+{{- $userEsc := shellEscape .Name -}}
+home_dir=$(getent passwd {{ $userEsc }} | cut -d: -f6)
+ssh_dir="$home_dir/.ssh"
+auth_file="$ssh_dir/authorized_keys"
+mkdir -p "$ssh_dir"
+chmod 700 "$ssh_dir"
+touch "$auth_file"
+chmod 600 "$auth_file"
+{{ range .AuthorizedKeys -}}
+if ! grep -qxF {{ shellEscape . }} "$auth_file"; then
+  printf '%s\n' {{ shellEscape . }} >> "$auth_file"
+fi
+{{ end -}}
+chown -R {{ $userEsc }}:{{ $userEsc }} "$ssh_dir"
+{{- end -}}
+{{- end -}}

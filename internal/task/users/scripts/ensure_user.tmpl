@@ -1,0 +1,6 @@
+{{- define "ensure_user" -}}
+{{- $userEsc := shellEscape .Name -}}
+if ! id -u {{ $userEsc }} >/dev/null 2>&1; then
+  useradd --create-home {{ $userEsc }}
+fi
+{{- end -}}

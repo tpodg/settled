@@ -1,0 +1,13 @@
+# Default configuration for the users task.
+# This file intentionally defines no users by default.
+#
+# Example:
+#   deploy:
+#     sudo: true
+#     sudo_nopasswd: true
+#     groups:
+#       - sudo
+#       - docker
+#     authorized_keys:
+#       - "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAA... user@example"
+{}
