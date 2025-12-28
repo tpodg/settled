@@ -4,6 +4,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/tpodg/settled/internal/server"
 	"github.com/tpodg/settled/internal/task"
+	"github.com/tpodg/settled/internal/task/catalog"
 )
 
 var configureCmd = &cobra.Command{
@@ -29,7 +30,7 @@ var configureCmd = &cobra.Command{
 
 			srv := server.NewSSHServer(s.Name, s.Address, s.User, s.SSHKey, s.KnownHostsPath)
 
-			tasks, unknown, err := task.PlanTasks(s.Tasks, task.Builtins())
+			tasks, unknown, err := task.PlanTasks(s.Tasks, catalog.Builtins())
 			if err != nil {
 				settleApp.Logger.Error("Failed to plan tasks", "server", s.Name, "error", err)
 				continue

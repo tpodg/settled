@@ -1,0 +1,25 @@
+{{- define "main" -}}
+set -e
+config={{ shellEscape .ConfigPath }}
+
+if [ ! -f "$config" ]; then
+  echo "sshd config not found: $config" >&2
+  exit 1
+fi
+
+if grep -qE '^[[:space:]]*#?[[:space:]]*PermitRootLogin[[:space:]]+' "$config"; then
+  sed -i -E 's/^[[:space:]]*#?[[:space:]]*PermitRootLogin[[:space:]].*/PermitRootLogin no/' "$config"
+else
+  printf '\nPermitRootLogin no\n' >> "$config"
+fi
+
+if command -v sshd >/dev/null 2>&1; then
+  sshd -t -f "$config"
+fi
+
+if command -v systemctl >/dev/null 2>&1; then
+  systemctl reload sshd || systemctl reload ssh || true
+elif command -v service >/dev/null 2>&1; then
+  service ssh reload || service sshd reload || true
+fi
+{{- end -}}

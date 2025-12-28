@@ -14,6 +14,7 @@ import (
 	"github.com/tpodg/settled/internal/task/taskutil"
 	"github.com/tpodg/settled/internal/task/users"
 	"github.com/tpodg/settled/internal/testutils"
+	tasktests "github.com/tpodg/settled/internal/testutils/task"
 )
 
 func TestUsersTask_Integration(t *testing.T) {
@@ -42,7 +43,7 @@ func TestUsersTask_Integration(t *testing.T) {
 			},
 		}
 
-		tasks := planUserTasks(t, overrides)
+		tasks := tasktests.PlanTasks(t, overrides, users.Spec())
 		if err := runner.Run(ctx, srv, tasks...); err != nil {
 			t.Fatalf("Run failed: %v", err)
 		}
@@ -51,7 +52,7 @@ func TestUsersTask_Integration(t *testing.T) {
 		assertUserInGroups(t, ctx, srv, "alice", []string{"developers", "sudo"})
 		assertSudoersFile(t, ctx, srv, "alice", "alice ALL=(ALL) NOPASSWD:ALL")
 		assertAuthorizedKeys(t, ctx, srv, "alice", []string{key1, key2})
-		assertTasksSatisfied(t, ctx, srv, tasks)
+		tasktests.AssertTasksSatisfied(t, ctx, srv, tasks)
 	})
 
 	t.Run("updates groups and keys without sudo", func(t *testing.T) {
@@ -63,7 +64,7 @@ func TestUsersTask_Integration(t *testing.T) {
 			},
 		}
 
-		tasks := planUserTasks(t, baseOverrides)
+		tasks := tasktests.PlanTasks(t, baseOverrides, users.Spec())
 		if err := runner.Run(ctx, srv, tasks...); err != nil {
 			t.Fatalf("Run failed: %v", err)
 		}
@@ -72,7 +73,7 @@ func TestUsersTask_Integration(t *testing.T) {
 		assertUserInGroups(t, ctx, srv, "bob", []string{"developers"})
 		assertNoSudoersFile(t, ctx, srv, "bob")
 		assertNoAuthorizedKeys(t, ctx, srv, "bob")
-		assertTasksSatisfied(t, ctx, srv, tasks)
+		tasktests.AssertTasksSatisfied(t, ctx, srv, tasks)
 
 		key := "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMockKey3 bob@example"
 		updatedOverrides := map[string]any{
@@ -84,8 +85,8 @@ func TestUsersTask_Integration(t *testing.T) {
 			},
 		}
 
-		updatedTasks := planUserTasks(t, updatedOverrides)
-		assertTasksNeedExecution(t, ctx, srv, updatedTasks)
+		updatedTasks := tasktests.PlanTasks(t, updatedOverrides, users.Spec())
+		tasktests.AssertTasksNeedExecution(t, ctx, srv, updatedTasks)
 		if err := runner.Run(ctx, srv, updatedTasks...); err != nil {
 			t.Fatalf("Run failed: %v", err)
 		}
@@ -93,40 +94,14 @@ func TestUsersTask_Integration(t *testing.T) {
 		assertUserInGroups(t, ctx, srv, "bob", []string{"developers", "ops"})
 		assertAuthorizedKeys(t, ctx, srv, "bob", []string{key})
 		assertNoSudoersFile(t, ctx, srv, "bob")
-		assertTasksSatisfied(t, ctx, srv, updatedTasks)
+		tasktests.AssertTasksSatisfied(t, ctx, srv, updatedTasks)
 	})
-}
-
-func planUserTasks(t *testing.T, overrides map[string]any) []task.Task {
-	t.Helper()
-
-	tasks, unknown, err := task.PlanTasks(overrides, []task.Spec{users.Spec()})
-	if err != nil {
-		t.Fatalf("PlanTasks failed: %v", err)
-	}
-	if len(unknown) != 0 {
-		t.Fatalf("unexpected unknown keys: %v", unknown)
-	}
-	if len(tasks) == 0 {
-		t.Fatalf("expected at least one task, got %d", len(tasks))
-	}
-	return tasks
-}
-
-func runCommand(t *testing.T, ctx context.Context, srv server.Server, command string) string {
-	t.Helper()
-
-	output, err := srv.Execute(ctx, command)
-	if err != nil {
-		t.Fatalf("command %q failed: %v\nOutput: %s", command, err, output)
-	}
-	return output
 }
 
 func assertUserExists(t *testing.T, ctx context.Context, srv server.Server, name string) {
 	t.Helper()
 
-	output := runCommand(t, ctx, srv, fmt.Sprintf("id -u %s", name))
+	output := tasktests.RunCommand(t, ctx, srv, fmt.Sprintf("id -u %s", name))
 	if strings.TrimSpace(output) == "" {
 		t.Fatalf("expected user %q to exist, got empty id output", name)
 	}
@@ -135,7 +110,7 @@ func assertUserExists(t *testing.T, ctx context.Context, srv server.Server, name
 func assertUserInGroups(t *testing.T, ctx context.Context, srv server.Server, name string, groups []string) {
 	t.Helper()
 
-	output := runCommand(t, ctx, srv, fmt.Sprintf("id -nG %s", name))
+	output := tasktests.RunCommand(t, ctx, srv, fmt.Sprintf("id -nG %s", name))
 	seen := make(map[string]bool)
 	for _, group := range strings.Fields(output) {
 		seen[group] = true
@@ -151,11 +126,11 @@ func assertSudoersFile(t *testing.T, ctx context.Context, srv server.Server, nam
 	t.Helper()
 
 	path := fmt.Sprintf("/etc/sudoers.d/settled-%s", taskutil.SanitizeFilename(name, "user"))
-	output := runCommand(t, ctx, srv, fmt.Sprintf("cat %s", path))
+	output := tasktests.RunCommand(t, ctx, srv, fmt.Sprintf("cat %s", path))
 	if strings.TrimSpace(output) != line {
 		t.Fatalf("expected sudoers line %q, got %q", line, strings.TrimSpace(output))
 	}
-	perm := strings.TrimSpace(runCommand(t, ctx, srv, fmt.Sprintf("stat -c %%a %s", path)))
+	perm := strings.TrimSpace(tasktests.RunCommand(t, ctx, srv, fmt.Sprintf("stat -c %%a %s", path)))
 	if perm != "440" {
 		t.Fatalf("expected sudoers perms 440, got %q", perm)
 	}
@@ -165,18 +140,18 @@ func assertNoSudoersFile(t *testing.T, ctx context.Context, srv server.Server, n
 	t.Helper()
 
 	path := fmt.Sprintf("/etc/sudoers.d/settled-%s", taskutil.SanitizeFilename(name, "user"))
-	runCommand(t, ctx, srv, fmt.Sprintf("test ! -f %s", path))
+	tasktests.RunCommand(t, ctx, srv, fmt.Sprintf("test ! -f %s", path))
 }
 
 func assertAuthorizedKeys(t *testing.T, ctx context.Context, srv server.Server, name string, keys []string) {
 	t.Helper()
 
-	home := strings.TrimSpace(runCommand(t, ctx, srv, fmt.Sprintf("getent passwd %s | cut -d: -f6", name)))
+	home := strings.TrimSpace(tasktests.RunCommand(t, ctx, srv, fmt.Sprintf("getent passwd %s | cut -d: -f6", name)))
 	if home == "" {
 		t.Fatalf("expected home directory for %q, got empty", name)
 	}
 	authFile := fmt.Sprintf("%s/.ssh/authorized_keys", home)
-	output := runCommand(t, ctx, srv, fmt.Sprintf("cat %s", authFile))
+	output := tasktests.RunCommand(t, ctx, srv, fmt.Sprintf("cat %s", authFile))
 	lines, err := taskutil.LineSet(output)
 	if err != nil {
 		t.Fatalf("scan authorized_keys: %v", err)
@@ -189,15 +164,15 @@ func assertAuthorizedKeys(t *testing.T, ctx context.Context, srv server.Server, 
 	if len(lines) != len(keys) {
 		t.Fatalf("expected %d authorized_keys entries, got %d", len(keys), len(lines))
 	}
-	perm := strings.TrimSpace(runCommand(t, ctx, srv, fmt.Sprintf("stat -c %%a %s", authFile)))
+	perm := strings.TrimSpace(tasktests.RunCommand(t, ctx, srv, fmt.Sprintf("stat -c %%a %s", authFile)))
 	if perm != "600" {
 		t.Fatalf("expected authorized_keys perms 600, got %q", perm)
 	}
-	dirPerm := strings.TrimSpace(runCommand(t, ctx, srv, fmt.Sprintf("stat -c %%a %s/.ssh", home)))
+	dirPerm := strings.TrimSpace(tasktests.RunCommand(t, ctx, srv, fmt.Sprintf("stat -c %%a %s/.ssh", home)))
 	if dirPerm != "700" {
 		t.Fatalf("expected .ssh perms 700, got %q", dirPerm)
 	}
-	owner := strings.TrimSpace(runCommand(t, ctx, srv, fmt.Sprintf("stat -c %%U:%%G %s/.ssh", home)))
+	owner := strings.TrimSpace(tasktests.RunCommand(t, ctx, srv, fmt.Sprintf("stat -c %%U:%%G %s/.ssh", home)))
 	expectedOwner := fmt.Sprintf("%s:%s", name, name)
 	if owner != expectedOwner {
 		t.Fatalf("expected .ssh owner %q, got %q", expectedOwner, owner)
@@ -207,39 +182,10 @@ func assertAuthorizedKeys(t *testing.T, ctx context.Context, srv server.Server, 
 func assertNoAuthorizedKeys(t *testing.T, ctx context.Context, srv server.Server, name string) {
 	t.Helper()
 
-	home := strings.TrimSpace(runCommand(t, ctx, srv, fmt.Sprintf("getent passwd %s | cut -d: -f6", name)))
+	home := strings.TrimSpace(tasktests.RunCommand(t, ctx, srv, fmt.Sprintf("getent passwd %s | cut -d: -f6", name)))
 	if home == "" {
 		t.Fatalf("expected home directory for %q, got empty", name)
 	}
 	authFile := fmt.Sprintf("%s/.ssh/authorized_keys", home)
-	runCommand(t, ctx, srv, fmt.Sprintf("test ! -f %s", authFile))
-}
-
-func assertTasksSatisfied(t *testing.T, ctx context.Context, srv server.Server, tasks []task.Task) {
-	t.Helper()
-
-	for _, task := range tasks {
-		needs, err := task.NeedsExecution(ctx, srv)
-		if err != nil {
-			t.Fatalf("NeedsExecution failed for %q: %v", task.Name(), err)
-		}
-		if needs {
-			t.Fatalf("expected task %q to be satisfied", task.Name())
-		}
-	}
-}
-
-func assertTasksNeedExecution(t *testing.T, ctx context.Context, srv server.Server, tasks []task.Task) {
-	t.Helper()
-
-	for _, task := range tasks {
-		needs, err := task.NeedsExecution(ctx, srv)
-		if err != nil {
-			t.Fatalf("NeedsExecution failed for %q: %v", task.Name(), err)
-		}
-		if needs {
-			return
-		}
-	}
-	t.Fatal("expected at least one task to need execution")
+	tasktests.RunCommand(t, ctx, srv, fmt.Sprintf("test ! -f %s", authFile))
 }
