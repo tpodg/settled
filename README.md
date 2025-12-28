@@ -35,7 +35,7 @@ Settled verifies SSH host keys against a `known_hosts` file. By default it uses 
 servers:
   - name: web-1
     address: 1.2.3.4
-    user: root
+    user: privileged_user
     ssh_key: ~/.ssh/id_ed25519
     known_hosts: ~/.ssh/known_hosts
 ```
@@ -48,7 +48,8 @@ Tasks run with built-in defaults even if you provide no task configuration. You 
 servers:
   - name: web-1
     address: 1.2.3.4
-    user: root
+    user: privileged_user
+    ssh_key: ~/.ssh/id_rsa
     tasks: {}
 ```
 Task defaults live in `internal/task/defaults` as YAML.

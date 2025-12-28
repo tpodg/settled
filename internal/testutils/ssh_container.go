@@ -12,6 +12,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"sync"
 	"testing"
 	"time"
 
@@ -33,7 +34,12 @@ type SSHContainer struct {
 const (
 	defaultSSHStartupTimeout = 60 * time.Second
 	defaultSSHPort           = "22"
-	legacySSHPort            = "2222"
+)
+
+var (
+	sshImageOnce sync.Once
+	sshImageName string
+	sshImageErr  error
 )
 
 func SetupSSHContainer(t *testing.T, ctx context.Context) *SSHContainer {
@@ -65,39 +71,22 @@ func SetupSSHContainer(t *testing.T, ctx context.Context) *SSHContainer {
 	pubKeyStr := string(ssh.MarshalAuthorizedKey(pub))
 
 	// 2. Start SSH container
-	image := os.Getenv("SETTLED_TEST_SSH_IMAGE")
-	sshPort := defaultSSHPort
-	if image != "" {
-		if envPort := os.Getenv("SETTLED_TEST_SSH_PORT"); envPort != "" {
-			sshPort = envPort
-		} else {
-			sshPort = legacySSHPort
-		}
+	image, err := ensureSSHImage()
+	if err != nil {
+		t.Fatalf("failed to build ssh image: %v", err)
 	}
 
-	portSpec := sshPort + "/tcp"
+	portSpec := defaultSSHPort + "/tcp"
 	natPort := nat.Port(portSpec)
 
 	req := testcontainers.ContainerRequest{
+		Image:        image,
 		ExposedPorts: []string{portSpec},
 		Env: map[string]string{
 			"PUBLIC_KEY": pubKeyStr,
 			"USER_NAME":  "testuser",
 		},
 		WaitingFor: wait.ForListeningPort(natPort).WithStartupTimeout(defaultSSHStartupTimeout),
-	}
-
-	if image == "" {
-		contextDir, err := sshImageContext()
-		if err != nil {
-			t.Fatalf("failed to resolve ssh image context: %v", err)
-		}
-		req.FromDockerfile = testcontainers.FromDockerfile{
-			Context:    contextDir,
-			Dockerfile: "Dockerfile",
-		}
-	} else {
-		req.Image = image
 	}
 
 	sshContainer, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
@@ -137,6 +126,39 @@ func SetupSSHContainer(t *testing.T, ctx context.Context) *SSHContainer {
 		KeyPath:        keyPath,
 		KnownHostsPath: knownHostsPath,
 	}
+}
+
+func ensureSSHImage() (string, error) {
+	sshImageOnce.Do(func() {
+		contextDir, err := sshImageContext()
+		if err != nil {
+			sshImageErr = err
+			return
+		}
+
+		provider, err := testcontainers.NewDockerProvider()
+		if err != nil {
+			sshImageErr = err
+			return
+		}
+
+		buildReq := testcontainers.ContainerRequest{
+			FromDockerfile: testcontainers.FromDockerfile{
+				Context:    contextDir,
+				Dockerfile: "Dockerfile",
+			},
+		}
+		// Use a background context so a test-scoped cancellation does not poison the shared build.
+		sshImageName, sshImageErr = provider.BuildImage(context.Background(), &buildReq)
+	})
+
+	if sshImageErr != nil {
+		return "", sshImageErr
+	}
+	if sshImageName == "" {
+		return "", errors.New("built ssh image tag is empty")
+	}
+	return sshImageName, nil
 }
 
 func sshImageContext() (string, error) {
