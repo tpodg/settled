@@ -49,7 +49,10 @@ var bootstrapCmd = &cobra.Command{
 		for _, s := range settleApp.Config.Servers {
 			settleApp.Logger.Info("Bootstrapping server", "name", s.Name, "address", s.Address)
 
-			srv := server.NewSSHServer(s.Name, s.Address, loginUser, s.SSHKey, s.KnownHostsPath)
+			srv := server.NewSSHServer(s.Name, s.Address, loginUser, s.SSHKey, s.KnownHostsPath, server.SSHOptions{
+				UseAgent:         s.UseAgent,
+				HandshakeTimeout: s.HandshakeTimeout,
+			})
 
 			keys, err := resolveBootstrapKeys(cmd.Context(), srv, bootstrapAuthorizedKeys, loginUser)
 			if err != nil {

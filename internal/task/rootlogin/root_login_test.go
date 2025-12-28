@@ -62,3 +62,14 @@ func TestRootLoginDisabled(t *testing.T) {
 		})
 	}
 }
+
+func TestRenderScript(t *testing.T) {
+	task := &DisableRootLoginTask{}
+	script, err := task.renderScript()
+	if err != nil {
+		t.Fatalf("renderScript failed: %v", err)
+	}
+	if script == "" {
+		t.Fatal("renderScript returned empty script")
+	}
+}

@@ -12,4 +12,4 @@ var userScriptsFS embed.FS
 
 var userScriptTemplates = template.Must(template.New("user").Funcs(template.FuncMap{
 	"shellEscape": strutil.ShellEscape,
-}).ParseFS(userScriptsFS, "scripts/*.sh.tmpl"))
+}).Option("missingkey=error").ParseFS(userScriptsFS, "scripts/*.sh.tmpl"))

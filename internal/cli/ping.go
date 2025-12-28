@@ -25,7 +25,10 @@ var pingCmd = &cobra.Command{
 
 		servers := make([]server.Server, 0, len(settleApp.Config.Servers))
 		for _, sCfg := range settleApp.Config.Servers {
-			servers = append(servers, server.NewSSHServer(sCfg.Name, sCfg.Address, sCfg.User, sCfg.SSHKey, sCfg.KnownHostsPath))
+			servers = append(servers, server.NewSSHServer(sCfg.Name, sCfg.Address, sCfg.User, sCfg.SSHKey, sCfg.KnownHostsPath, server.SSHOptions{
+				UseAgent:         sCfg.UseAgent,
+				HandshakeTimeout: sCfg.HandshakeTimeout,
+			}))
 		}
 
 		verifyServers(settleApp.Logger, servers)

@@ -47,13 +47,13 @@ func RunCommand(t *testing.T, ctx context.Context, srv server.Server, command st
 func AssertTasksSatisfied(t *testing.T, ctx context.Context, srv server.Server, tasks []task.Task) {
 	t.Helper()
 
-	for _, task := range tasks {
-		needs, err := task.NeedsExecution(ctx, srv)
+	for _, currentTask := range tasks {
+		needs, err := currentTask.NeedsExecution(ctx, srv)
 		if err != nil {
-			t.Fatalf("NeedsExecution failed for %q: %v", task.Name(), err)
+			t.Fatalf("NeedsExecution failed for %q: %v", currentTask.Name(), err)
 		}
 		if needs {
-			t.Fatalf("expected task %q to be satisfied", task.Name())
+			t.Fatalf("expected task %q to be satisfied", currentTask.Name())
 		}
 	}
 }
@@ -61,10 +61,10 @@ func AssertTasksSatisfied(t *testing.T, ctx context.Context, srv server.Server, 
 func AssertTasksNeedExecution(t *testing.T, ctx context.Context, srv server.Server, tasks []task.Task) {
 	t.Helper()
 
-	for _, task := range tasks {
-		needs, err := task.NeedsExecution(ctx, srv)
+	for _, currentTask := range tasks {
+		needs, err := currentTask.NeedsExecution(ctx, srv)
 		if err != nil {
-			t.Fatalf("NeedsExecution failed for %q: %v", task.Name(), err)
+			t.Fatalf("NeedsExecution failed for %q: %v", currentTask.Name(), err)
 		}
 		if needs {
 			return

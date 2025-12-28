@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 
 	goconfig "github.com/tpodg/go-config"
 )
@@ -13,12 +14,14 @@ type Config struct {
 }
 
 type ServerConfig struct {
-	Name           string         `yaml:"name"`
-	Address        string         `yaml:"address"`
-	User           string         `yaml:"user"`
-	SSHKey         string         `yaml:"ssh_key"`
-	KnownHostsPath string         `yaml:"known_hosts"`
-	Tasks          map[string]any `yaml:"tasks"`
+	Name             string         `yaml:"name"`
+	Address          string         `yaml:"address"`
+	User             string         `yaml:"user"`
+	SSHKey           string         `yaml:"ssh_key"`
+	KnownHostsPath   string         `yaml:"known_hosts"`
+	UseAgent         *bool          `yaml:"use_agent"`
+	HandshakeTimeout time.Duration  `yaml:"handshake_timeout"`
+	Tasks            map[string]any `yaml:"tasks"`
 }
 
 // Load the configuration from the given file or default locations.

@@ -189,16 +189,21 @@ type userEntry struct {
 	home string
 }
 
+const missingUserSentinel = "__SETTLED_MISSING_USER__"
+
 func lookupUser(ctx context.Context, s server.Server, name string) (*userEntry, error) {
-	output, err := s.Execute(ctx, fmt.Sprintf("getent passwd %s", strutil.ShellEscape(name)))
+	userEsc := strutil.ShellEscape(name)
+	script := fmt.Sprintf(
+		"getent passwd %s; status=$?; if [ $status -eq 1 ] || [ $status -eq 2 ]; then printf '%%s' %s; exit 0; fi; exit $status",
+		userEsc,
+		strutil.ShellEscape(missingUserSentinel),
+	)
+	output, err := s.Execute(ctx, "sh -c "+strutil.ShellEscape(script))
 	if err != nil {
-		if strings.TrimSpace(output) == "" {
-			return nil, nil
-		}
 		return nil, fmt.Errorf("lookup user %q: %w", name, err)
 	}
 	line := strings.TrimSpace(output)
-	if line == "" {
+	if line == "" || line == missingUserSentinel {
 		return nil, nil
 	}
 	fields := strings.Split(line, ":")

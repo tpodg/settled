@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 )
 
 func TestLoad(t *testing.T) {
@@ -19,6 +20,8 @@ servers:
   - name: test-server
     address: 1.2.3.4
     user: test-user
+    use_agent: false
+    handshake_timeout: 12s
     tasks:
       ssh:
         hardening: true
@@ -40,6 +43,12 @@ servers:
 		}
 
 		s := cfg.Servers[0]
+		if s.UseAgent == nil || *s.UseAgent != false {
+			t.Fatalf("expected use_agent=false, got %v", s.UseAgent)
+		}
+		if s.HandshakeTimeout != 12*time.Second {
+			t.Fatalf("expected handshake_timeout=12s, got %s", s.HandshakeTimeout)
+		}
 		ssh, ok := s.Tasks["ssh"].(map[string]any)
 		if !ok || ssh["hardening"] != true {
 			t.Fatalf("expected ssh hardening=true, got %+v", s.Tasks["ssh"])

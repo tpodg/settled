@@ -12,4 +12,4 @@ var rootLoginScriptsFS embed.FS
 
 var rootLoginScriptTemplates = template.Must(template.New("rootlogin").Funcs(template.FuncMap{
 	"shellEscape": strutil.ShellEscape,
-}).ParseFS(rootLoginScriptsFS, "scripts/*.sh.tmpl"))
+}).Option("missingkey=error").ParseFS(rootLoginScriptsFS, "scripts/*.sh.tmpl"))

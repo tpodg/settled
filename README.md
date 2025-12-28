@@ -38,7 +38,11 @@ servers:
     user: privileged_user
     ssh_key: ~/.ssh/id_ed25519
     known_hosts: ~/.ssh/known_hosts
+    use_agent: true
+    handshake_timeout: 15s
 ```
+
+`use_agent` controls whether the SSH agent is consulted (default true). `handshake_timeout` bounds the SSH handshake; it accepts duration strings like `10s` or `1m`.
 
 ### Tasks and Defaults
 

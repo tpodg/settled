@@ -28,7 +28,10 @@ var configureCmd = &cobra.Command{
 		for _, s := range settleApp.Config.Servers {
 			settleApp.Logger.Info("Configuring server", "name", s.Name, "address", s.Address)
 
-			srv := server.NewSSHServer(s.Name, s.Address, s.User, s.SSHKey, s.KnownHostsPath)
+			srv := server.NewSSHServer(s.Name, s.Address, s.User, s.SSHKey, s.KnownHostsPath, server.SSHOptions{
+				UseAgent:         s.UseAgent,
+				HandshakeTimeout: s.HandshakeTimeout,
+			})
 
 			tasks, unknown, err := task.PlanTasks(s.Tasks, catalog.Builtins())
 			if err != nil {

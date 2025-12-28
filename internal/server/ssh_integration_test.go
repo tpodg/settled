@@ -14,7 +14,7 @@ func TestSSHServer_Integration(t *testing.T) {
 	defer sshC.Container.Terminate(ctx)
 
 	// 3. Test SSHServer
-	s := NewSSHServer("test-container", sshC.Address, sshC.User, sshC.KeyPath, sshC.KnownHostsPath)
+	s := NewSSHServer("test-container", sshC.Address, sshC.User, sshC.KeyPath, sshC.KnownHostsPath, SSHOptions{})
 
 	// Wait a bit for the SSH server to be fully ready
 	time.Sleep(2 * time.Second)

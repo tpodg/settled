@@ -55,7 +55,7 @@ func TestBootstrapCommand_Integration(t *testing.T) {
 	bootstrapCmd.SetContext(context.WithValue(context.Background(), appKey, settleApp))
 	bootstrapCmd.Run(bootstrapCmd, nil)
 
-	newSrv := server.NewSSHServer("bootstrap-login", sshC.Address, bootstrapUser, sshC.KeyPath, sshC.KnownHostsPath)
+	newSrv := server.NewSSHServer("bootstrap-login", sshC.Address, bootstrapUser, sshC.KeyPath, sshC.KnownHostsPath, server.SSHOptions{})
 	output, err := newSrv.Execute(ctx, "whoami")
 	if err != nil {
 		t.Fatalf("failed to login as new user: %v", err)

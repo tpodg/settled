@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/agent"
@@ -19,15 +20,24 @@ type SSHServer struct {
 	user           string
 	keyPath        string
 	knownHostsPath string
+	opts           SSHOptions
 }
 
-func NewSSHServer(name, address, user, keyPath, knownHostsPath string) *SSHServer {
+type SSHOptions struct {
+	UseAgent         *bool
+	HandshakeTimeout time.Duration
+}
+
+const defaultSSHHandshakeTimeout = 15 * time.Second
+
+func NewSSHServer(name, address, user, keyPath, knownHostsPath string, opts SSHOptions) *SSHServer {
 	return &SSHServer{
 		name:           name,
 		address:        address,
 		user:           user,
 		keyPath:        keyPath,
 		knownHostsPath: knownHostsPath,
+		opts:           opts,
 	}
 }
 
@@ -42,15 +52,7 @@ func (s *SSHServer) Execute(ctx context.Context, command string) (string, error)
 
 	authMethods := []ssh.AuthMethod{}
 
-	// 1. Try SSH agent
-	if sock := os.Getenv("SSH_AUTH_SOCK"); sock != "" {
-		if agentConn, err := net.Dial("unix", sock); err == nil {
-			authMethods = append(authMethods, ssh.PublicKeysCallback(agent.NewClient(agentConn).Signers))
-			defer agentConn.Close()
-		}
-	}
-
-	// 2. Try private key if provided
+	// Prefer explicit key material before falling back to the agent.
 	if s.keyPath != "" {
 		expandedPath, err := expandPath(s.keyPath)
 		if err != nil {
@@ -65,6 +67,15 @@ func (s *SSHServer) Execute(ctx context.Context, command string) (string, error)
 			return "", fmt.Errorf("failed to parse ssh key %q: %w", expandedPath, err)
 		}
 		authMethods = append(authMethods, ssh.PublicKeys(signer))
+	}
+
+	if s.useAgent() {
+		if sock := os.Getenv("SSH_AUTH_SOCK"); sock != "" {
+			if agentConn, err := net.Dial("unix", sock); err == nil {
+				authMethods = append(authMethods, ssh.PublicKeysCallback(agent.NewClient(agentConn).Signers))
+				defer agentConn.Close()
+			}
+		}
 	}
 
 	if len(authMethods) == 0 {
@@ -93,10 +104,29 @@ func (s *SSHServer) Execute(ctx context.Context, command string) (string, error)
 		return "", fmt.Errorf("failed to dial %s: %w", addr, err)
 	}
 
+	if err := applyHandshakeDeadline(ctx, conn, s.handshakeTimeout()); err != nil {
+		conn.Close()
+		return "", err
+	}
+	handshakeDone := make(chan struct{})
+	go func() {
+		select {
+		case <-ctx.Done():
+			conn.Close()
+		case <-handshakeDone:
+		}
+	}()
+
 	sshConn, chans, reqs, err := ssh.NewClientConn(conn, addr, config)
 	if err != nil {
+		close(handshakeDone)
 		conn.Close()
 		return "", fmt.Errorf("failed to establish ssh connection to %s: %w", addr, err)
+	}
+	close(handshakeDone)
+	if err := clearDeadline(conn); err != nil {
+		sshConn.Close()
+		return "", err
 	}
 	client := ssh.NewClient(sshConn, chans, reqs)
 	defer client.Close()
@@ -124,6 +154,55 @@ func (s *SSHServer) Execute(ctx context.Context, command string) (string, error)
 	}
 
 	return string(output), nil
+}
+
+func (s *SSHServer) useAgent() bool {
+	if s.opts.UseAgent == nil {
+		return true
+	}
+	return *s.opts.UseAgent
+}
+
+func (s *SSHServer) handshakeTimeout() time.Duration {
+	if s.opts.HandshakeTimeout > 0 {
+		return s.opts.HandshakeTimeout
+	}
+	return defaultSSHHandshakeTimeout
+}
+
+func applyHandshakeDeadline(ctx context.Context, conn net.Conn, timeout time.Duration) error {
+	deadline, ok := handshakeDeadline(ctx, timeout)
+	if !ok {
+		return nil
+	}
+	if err := conn.SetDeadline(deadline); err != nil {
+		return fmt.Errorf("set ssh handshake deadline: %w", err)
+	}
+	return nil
+}
+
+func clearDeadline(conn net.Conn) error {
+	if err := conn.SetDeadline(time.Time{}); err != nil {
+		return fmt.Errorf("clear ssh handshake deadline: %w", err)
+	}
+	return nil
+}
+
+func handshakeDeadline(ctx context.Context, timeout time.Duration) (time.Time, bool) {
+	var deadline time.Time
+	now := time.Now()
+	if timeout > 0 {
+		deadline = now.Add(timeout)
+	}
+	if ctxDeadline, ok := ctx.Deadline(); ok {
+		if deadline.IsZero() || ctxDeadline.Before(deadline) {
+			deadline = ctxDeadline
+		}
+	}
+	if deadline.IsZero() {
+		return time.Time{}, false
+	}
+	return deadline, true
 }
 
 func resolveKnownHostsPath(path string) (string, error) {
