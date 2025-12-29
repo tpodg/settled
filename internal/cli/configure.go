@@ -28,7 +28,11 @@ var configureCmd = &cobra.Command{
 		for _, s := range settleApp.Config.Servers {
 			settleApp.Logger.Info("Configuring server", "name", s.Name, "address", s.Address)
 
-			srv := server.NewSSHServer(s.Name, s.Address, s.User, s.SSHKey, s.KnownHostsPath, server.SSHOptions{
+			srv := server.NewSSHServer(s.Name, s.Address, server.User{
+				Name:         s.User.Name,
+				SSHKey:       s.User.SSHKey,
+				SudoPassword: s.User.SudoPassword,
+			}, s.KnownHostsPath, server.SSHOptions{
 				UseAgent:         s.UseAgent,
 				HandshakeTimeout: s.HandshakeTimeout,
 			})

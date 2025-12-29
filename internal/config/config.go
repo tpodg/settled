@@ -18,12 +18,17 @@ const DefaultConfigFileName = ".settled.yaml"
 type ServerConfig struct {
 	Name             string         `yaml:"name"`
 	Address          string         `yaml:"address"`
-	User             string         `yaml:"user"`
-	SSHKey           string         `yaml:"ssh_key"`
+	User             UserConfig     `yaml:"user"`
 	KnownHostsPath   string         `yaml:"known_hosts"`
 	UseAgent         *bool          `yaml:"use_agent"`
 	HandshakeTimeout time.Duration  `yaml:"handshake_timeout"`
 	Tasks            map[string]any `yaml:"tasks"`
+}
+
+type UserConfig struct {
+	Name         string `yaml:"name"`
+	SSHKey       string `yaml:"ssh_key"`
+	SudoPassword string `yaml:"sudo_password"`
 }
 
 // Load the configuration from the given file or default locations.
@@ -39,9 +44,8 @@ func Load(cfgFile string) (*Config, error) {
 		if err != nil {
 			return nil, fmt.Errorf("failed to get absolute path for %s: %w", path, err)
 		}
-		c.WithProviders(&goconfig.Yaml{Path: absPath})
+		c.WithProviders(&goconfig.Yaml{Path: absPath}, &goconfig.Env{Prefix: "SETTLED"})
 	}
-
 	c.WithProviders(&goconfig.Env{Prefix: "SETTLED"})
 
 	cfg := &Config{}

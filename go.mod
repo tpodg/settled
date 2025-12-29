@@ -7,7 +7,7 @@ require (
 	github.com/goccy/go-yaml v1.19.1
 	github.com/spf13/cobra v1.10.2
 	github.com/testcontainers/testcontainers-go v0.40.0
-	github.com/tpodg/go-config v1.1.0
+	github.com/tpodg/go-config v1.2.1
 	golang.org/x/crypto v0.46.0
 )
 

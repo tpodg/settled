@@ -46,14 +46,16 @@ Settled verifies SSH host keys against a `known_hosts` file. By default it uses 
 servers:
   - name: web-1
     address: 1.2.3.4
-    user: privileged_user
-    ssh_key: ~/.ssh/id_ed25519
+    user:
+      name: privileged_user
+      ssh_key: ~/.ssh/id_ed25519
+      # sudo_password: "optional sudo password"
     known_hosts: ~/.ssh/known_hosts
     use_agent: true
     handshake_timeout: 15s
 ```
 
-`use_agent` controls whether the SSH agent is consulted (default true). `handshake_timeout` bounds the SSH handshake; it accepts duration strings like `10s` or `1m`.
+`use_agent` controls whether the SSH agent is consulted (default true). `handshake_timeout` bounds the SSH handshake; it accepts duration strings like `10s` or `1m`. `sudo_password` is only used to elevate to sudo; SSH authentication still uses keys/agent.
 
 ### Tasks and Defaults
 
@@ -63,8 +65,9 @@ Tasks run with built-in defaults even if you provide no task configuration. You 
 servers:
   - name: web-1
     address: 1.2.3.4
-    user: privileged_user
-    ssh_key: ~/.ssh/id_rsa
+    user:
+      name: privileged_user
+      ssh_key: ~/.ssh/id_rsa
     tasks: {}
 ```
 Task defaults live in `internal/task/defaults` as YAML.
@@ -83,7 +86,7 @@ By default, it copies the login user's `authorized_keys` to the new user. To pro
 ./settle bootstrap --user deploy --authorized-key "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAA..."
 ```
 
-Optional flags include `--login-user` (default `root`), `--group` (default `sudo`), and `--sudo-nopasswd`. When `--login-user` is not root, it must have passwordless sudo.
+Optional flags include `--login-user` (default `root`), `--group` (default `sudo`), `--sudo-nopasswd`, and `--sudo-password`. When `--login-user` is not root, it must have sudo privileges (use `--sudo-password` if it requires a password).
 
 Example with a non-root login:
 

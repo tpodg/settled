@@ -18,6 +18,7 @@ var (
 	bootstrapGroup          string
 	bootstrapSudoNoPasswd   bool
 	bootstrapAuthorizedKeys []string
+	bootstrapSudoPassword   string
 )
 
 var bootstrapCmd = &cobra.Command{
@@ -44,12 +45,22 @@ var bootstrapCmd = &cobra.Command{
 		if loginUser == "" {
 			loginUser = "root"
 		}
+		sudoPassword := strings.TrimSpace(bootstrapSudoPassword)
 		runner := task.NewRunner(settleApp.Logger)
 
 		for _, s := range settleApp.Config.Servers {
 			settleApp.Logger.Info("Bootstrapping server", "name", s.Name, "address", s.Address)
 
-			srv := server.NewSSHServer(s.Name, s.Address, loginUser, s.SSHKey, s.KnownHostsPath, server.SSHOptions{
+			loginSudoPassword := sudoPassword
+			if loginSudoPassword == "" && loginUser == s.User.Name {
+				loginSudoPassword = s.User.SudoPassword
+			}
+
+			srv := server.NewSSHServer(s.Name, s.Address, server.User{
+				Name:         loginUser,
+				SSHKey:       s.User.SSHKey,
+				SudoPassword: loginSudoPassword,
+			}, s.KnownHostsPath, server.SSHOptions{
 				UseAgent:         s.UseAgent,
 				HandshakeTimeout: s.HandshakeTimeout,
 			})
@@ -132,6 +143,7 @@ func init() {
 	bootstrapCmd.Flags().StringVar(&bootstrapGroup, "group", "sudo", "Additional group to assign to the new user (optional)")
 	bootstrapCmd.Flags().BoolVar(&bootstrapSudoNoPasswd, "sudo-nopasswd", false, "Allow passwordless sudo")
 	bootstrapCmd.Flags().StringSliceVar(&bootstrapAuthorizedKeys, "authorized-key", nil, "Authorized SSH public key for the new user (repeatable; defaults to login user's keys)")
+	bootstrapCmd.Flags().StringVar(&bootstrapSudoPassword, "sudo-password", "", "Sudo password for the login user (optional)")
 	cobra.CheckErr(bootstrapCmd.MarkFlagRequired("user"))
 	rootCmd.AddCommand(bootstrapCmd)
 }

@@ -31,6 +31,12 @@ type SSHContainer struct {
 	KnownHostsPath string
 }
 
+type SSHContainerOptions struct {
+	UserName     string
+	UserPassword string
+	SudoNoPasswd *bool
+}
+
 const (
 	defaultSSHStartupTimeout = 60 * time.Second
 	defaultSSHPort           = "22"
@@ -43,6 +49,10 @@ var (
 )
 
 func SetupSSHContainer(t *testing.T, ctx context.Context) *SSHContainer {
+	return SetupSSHContainerWithOptions(t, ctx, SSHContainerOptions{})
+}
+
+func SetupSSHContainerWithOptions(t *testing.T, ctx context.Context, opts SSHContainerOptions) *SSHContainer {
 	t.Helper()
 
 	// 1. Generate SSH key pair
@@ -79,14 +89,33 @@ func SetupSSHContainer(t *testing.T, ctx context.Context) *SSHContainer {
 	portSpec := defaultSSHPort + "/tcp"
 	natPort := nat.Port(portSpec)
 
+	userName := opts.UserName
+	if userName == "" {
+		userName = "testuser"
+	}
+	sudoNoPasswd := true
+	if opts.SudoNoPasswd != nil {
+		sudoNoPasswd = *opts.SudoNoPasswd
+	}
+
+	env := map[string]string{
+		"PUBLIC_KEY": pubKeyStr,
+		"USER_NAME":  userName,
+	}
+	if opts.UserPassword != "" {
+		env["USER_PASSWORD"] = opts.UserPassword
+	}
+	if sudoNoPasswd {
+		env["SUDO_NOPASSWD"] = "1"
+	} else {
+		env["SUDO_NOPASSWD"] = "0"
+	}
+
 	req := testcontainers.ContainerRequest{
 		Image:        image,
 		ExposedPorts: []string{portSpec},
-		Env: map[string]string{
-			"PUBLIC_KEY": pubKeyStr,
-			"USER_NAME":  "testuser",
-		},
-		WaitingFor: wait.ForListeningPort(natPort).WithStartupTimeout(defaultSSHStartupTimeout),
+		Env:          env,
+		WaitingFor:   wait.ForListeningPort(natPort).WithStartupTimeout(defaultSSHStartupTimeout),
 	}
 
 	sshContainer, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{

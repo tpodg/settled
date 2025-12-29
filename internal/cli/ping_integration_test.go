@@ -24,7 +24,10 @@ func TestVerifyServers_Integration(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(&buf, &slog.HandlerOptions{Level: slog.LevelInfo}))
 
 	servers := []server.Server{
-		server.NewSSHServer("integration-server", sshC.Address, sshC.User, sshC.KeyPath, sshC.KnownHostsPath, server.SSHOptions{}),
+		server.NewSSHServer("integration-server", sshC.Address, server.User{
+			Name:   sshC.User,
+			SSHKey: sshC.KeyPath,
+		}, sshC.KnownHostsPath, server.SSHOptions{}),
 	}
 
 	verifyServers(logger, servers)

@@ -25,12 +25,14 @@ func TestBootstrapCommand_Integration(t *testing.T) {
 	origGroup := bootstrapGroup
 	origNoPass := bootstrapSudoNoPasswd
 	origKeys := bootstrapAuthorizedKeys
+	origSudoPassword := bootstrapSudoPassword
 	t.Cleanup(func() {
 		bootstrapUser = origUser
 		bootstrapLoginUser = origLogin
 		bootstrapGroup = origGroup
 		bootstrapSudoNoPasswd = origNoPass
 		bootstrapAuthorizedKeys = origKeys
+		bootstrapSudoPassword = origSudoPassword
 	})
 
 	bootstrapUser = "bootstrapper"
@@ -38,14 +40,14 @@ func TestBootstrapCommand_Integration(t *testing.T) {
 	bootstrapGroup = "sudo"
 	bootstrapSudoNoPasswd = true
 	bootstrapAuthorizedKeys = nil
+	bootstrapSudoPassword = ""
 
 	cfg := &config.Config{
 		Servers: []config.ServerConfig{
 			{
 				Name:           "bootstrap-test",
 				Address:        sshC.Address,
-				User:           bootstrapLoginUser,
-				SSHKey:         sshC.KeyPath,
+				User:           config.UserConfig{Name: bootstrapLoginUser, SSHKey: sshC.KeyPath},
 				KnownHostsPath: sshC.KnownHostsPath,
 			},
 		},
@@ -55,7 +57,10 @@ func TestBootstrapCommand_Integration(t *testing.T) {
 	bootstrapCmd.SetContext(context.WithValue(context.Background(), appKey, settleApp))
 	bootstrapCmd.Run(bootstrapCmd, nil)
 
-	newSrv := server.NewSSHServer("bootstrap-login", sshC.Address, bootstrapUser, sshC.KeyPath, sshC.KnownHostsPath, server.SSHOptions{})
+	newSrv := server.NewSSHServer("bootstrap-login", sshC.Address, server.User{
+		Name:   bootstrapUser,
+		SSHKey: sshC.KeyPath,
+	}, sshC.KnownHostsPath, server.SSHOptions{})
 	output, err := newSrv.Execute(ctx, "whoami")
 	if err != nil {
 		t.Fatalf("failed to login as new user: %v", err)

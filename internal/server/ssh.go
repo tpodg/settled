@@ -17,8 +17,7 @@ import (
 type SSHServer struct {
 	name           string
 	address        string
-	user           string
-	keyPath        string
+	user           User
 	knownHostsPath string
 	opts           SSHOptions
 }
@@ -30,12 +29,11 @@ type SSHOptions struct {
 
 const defaultSSHHandshakeTimeout = 15 * time.Second
 
-func NewSSHServer(name, address, user, keyPath, knownHostsPath string, opts SSHOptions) *SSHServer {
+func NewSSHServer(name, address string, user User, knownHostsPath string, opts SSHOptions) *SSHServer {
 	return &SSHServer{
 		name:           name,
 		address:        address,
 		user:           user,
-		keyPath:        keyPath,
 		knownHostsPath: knownHostsPath,
 		opts:           opts,
 	}
@@ -53,10 +51,10 @@ func (s *SSHServer) Execute(ctx context.Context, command string) (string, error)
 	authMethods := []ssh.AuthMethod{}
 
 	// Prefer explicit key material before falling back to the agent.
-	if s.keyPath != "" {
-		expandedPath, err := expandPath(s.keyPath)
+	if s.user.SSHKey != "" {
+		expandedPath, err := expandPath(s.user.SSHKey)
 		if err != nil {
-			return "", fmt.Errorf("failed to expand ssh key path %q: %w", s.keyPath, err)
+			return "", fmt.Errorf("failed to expand ssh key path %q: %w", s.user.SSHKey, err)
 		}
 		key, err := os.ReadFile(expandedPath)
 		if err != nil {
@@ -92,7 +90,7 @@ func (s *SSHServer) Execute(ctx context.Context, command string) (string, error)
 	}
 
 	config := &ssh.ClientConfig{
-		User:            s.user,
+		User:            s.user.Name,
 		Auth:            authMethods,
 		HostKeyCallback: hostKeyCallback,
 	}
@@ -148,9 +146,15 @@ func (s *SSHServer) Execute(ctx context.Context, command string) (string, error)
 	}
 	defer session.Close()
 
-	output, err := session.CombinedOutput(command)
+	commandToRun := command
+	if s.user.SudoPassword != "" && strings.HasPrefix(command, "sudo -n ") {
+		commandToRun = "sudo -S -p '' " + strings.TrimPrefix(command, "sudo -n ")
+		session.Stdin = strings.NewReader(s.user.SudoPassword + "\n")
+	}
+
+	output, err := session.CombinedOutput(commandToRun)
 	if err != nil {
-		return string(output), fmt.Errorf("command %q failed: %w", command, err)
+		return string(output), fmt.Errorf("command %q failed: %w", commandToRun, err)
 	}
 
 	return string(output), nil

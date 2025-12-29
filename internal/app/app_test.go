@@ -10,7 +10,7 @@ import (
 func TestNew(t *testing.T) {
 	cfg := &config.Config{
 		Servers: []config.ServerConfig{
-			{Name: "test", Address: "1.2.3.4", User: "admin"},
+			{Name: "test", Address: "1.2.3.4", User: config.UserConfig{Name: "admin"}},
 		},
 	}
 

@@ -21,7 +21,10 @@ func TestLoad(t *testing.T) {
 servers:
   - name: test-server
     address: 1.2.3.4
-    user: test-user
+    user:
+      name: test-user
+      ssh_key: ~/.ssh/id_rsa
+      sudo_password: test-pass
     use_agent: false
     handshake_timeout: 12s
     tasks:
@@ -48,6 +51,15 @@ servers:
 		if s.UseAgent == nil || *s.UseAgent != false {
 			t.Fatalf("expected use_agent=false, got %v", s.UseAgent)
 		}
+		if s.User.Name != "test-user" {
+			t.Fatalf("expected user name %q, got %q", "test-user", s.User.Name)
+		}
+		if s.User.SSHKey != "~/.ssh/id_rsa" {
+			t.Fatalf("expected user ssh_key %q, got %q", "~/.ssh/id_rsa", s.User.SSHKey)
+		}
+		if s.User.SudoPassword != "test-pass" {
+			t.Fatalf("expected user sudo_password %q, got %q", "test-pass", s.User.SudoPassword)
+		}
 		if s.HandshakeTimeout != 12*time.Second {
 			t.Fatalf("expected handshake_timeout=12s, got %s", s.HandshakeTimeout)
 		}
@@ -70,6 +82,28 @@ servers:
 		_, err := Load("non-existent-file.yaml")
 		if err == nil {
 			t.Error("expected error when loading non-existent file, got nil")
+		}
+	})
+
+	t.Run("env overrides sudo password", func(t *testing.T) {
+		envKey := "SETTLED_SERVERS_0_USER_SUDO_PASSWORD"
+		if err := os.Setenv(envKey, "env-pass"); err != nil {
+			t.Fatalf("failed to set env var: %v", err)
+		}
+		t.Cleanup(func() {
+			_ = os.Unsetenv(envKey)
+		})
+
+		cfg, err := Load(configPath)
+		if err != nil {
+			t.Fatalf("Load failed: %v", err)
+		}
+
+		if len(cfg.Servers) != 1 {
+			t.Fatalf("expected 1 server, got %d", len(cfg.Servers))
+		}
+		if cfg.Servers[0].User.SudoPassword != "env-pass" {
+			t.Fatalf("expected env override sudo_password %q, got %q", "env-pass", cfg.Servers[0].User.SudoPassword)
 		}
 	})
 }

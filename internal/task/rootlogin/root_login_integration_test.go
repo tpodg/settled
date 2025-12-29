@@ -29,7 +29,10 @@ func TestRootLoginTask_Integration(t *testing.T) {
 	runner := task.NewRunner(logger)
 
 	t.Run("skips when logged in as root", func(t *testing.T) {
-		srv := server.NewSSHServer("rootlogin-root", sshC.Address, "root", sshC.KeyPath, sshC.KnownHostsPath, server.SSHOptions{})
+		srv := server.NewSSHServer("rootlogin-root", sshC.Address, server.User{
+			Name:   "root",
+			SSHKey: sshC.KeyPath,
+		}, sshC.KnownHostsPath, server.SSHOptions{})
 		tasks := tasktests.PlanTasks(t, map[string]any{}, rootlogin.Spec())
 
 		before := permitRootLoginValue(t, ctx, srv)
@@ -49,7 +52,10 @@ func TestRootLoginTask_Integration(t *testing.T) {
 	})
 
 	t.Run("disables when logged in as non-root", func(t *testing.T) {
-		srv := server.NewSSHServer("rootlogin-nonroot", sshC.Address, "testuser", sshC.KeyPath, sshC.KnownHostsPath, server.SSHOptions{})
+		srv := server.NewSSHServer("rootlogin-nonroot", sshC.Address, server.User{
+			Name:   "testuser",
+			SSHKey: sshC.KeyPath,
+		}, sshC.KnownHostsPath, server.SSHOptions{})
 		tasks := tasktests.PlanTasks(t, map[string]any{}, rootlogin.Spec())
 
 		assertRootLoginWorks(t, ctx, sshC, "root-login-before")
@@ -90,7 +96,10 @@ func permitRootLoginValue(t *testing.T, ctx context.Context, srv server.Server) 
 func assertRootLoginWorks(t *testing.T, ctx context.Context, sshC *testutils.SSHContainer, name string) {
 	t.Helper()
 
-	srv := server.NewSSHServer(name, sshC.Address, "root", sshC.KeyPath, sshC.KnownHostsPath, server.SSHOptions{})
+	srv := server.NewSSHServer(name, sshC.Address, server.User{
+		Name:   "root",
+		SSHKey: sshC.KeyPath,
+	}, sshC.KnownHostsPath, server.SSHOptions{})
 	tasktests.WaitForLogin(t, ctx, srv, "root")
 }
 
@@ -99,7 +108,10 @@ func assertRootLoginBlocked(t *testing.T, ctx context.Context, sshC *testutils.S
 
 	deadline := time.Now().Add(5 * time.Second)
 	for {
-		srv := server.NewSSHServer(name, sshC.Address, "root", sshC.KeyPath, sshC.KnownHostsPath, server.SSHOptions{})
+		srv := server.NewSSHServer(name, sshC.Address, server.User{
+			Name:   "root",
+			SSHKey: sshC.KeyPath,
+		}, sshC.KnownHostsPath, server.SSHOptions{})
 		_, err := srv.Execute(ctx, "id -un")
 		if err != nil {
 			return

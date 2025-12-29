@@ -28,7 +28,10 @@ func TestSSHPasswordAuthTask_Integration(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(io.Discard, &slog.HandlerOptions{Level: slog.LevelInfo}))
 	runner := task.NewRunner(logger)
 
-	srv := server.NewSSHServer("sshpwauth-nonroot", sshC.Address, "testuser", sshC.KeyPath, sshC.KnownHostsPath, server.SSHOptions{})
+	srv := server.NewSSHServer("sshpwauth-nonroot", sshC.Address, server.User{
+		Name:   "testuser",
+		SSHKey: sshC.KeyPath,
+	}, sshC.KnownHostsPath, server.SSHOptions{})
 	tasks := tasktests.PlanTasks(t, map[string]any{}, sshpasswordauth.Spec())
 
 	tasktests.AssertTasksNeedExecution(t, ctx, srv, tasks)

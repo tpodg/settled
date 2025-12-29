@@ -25,7 +25,10 @@ func TestUsersTask_Integration(t *testing.T) {
 	// Wait a bit for the SSH server to be fully ready
 	time.Sleep(2 * time.Second)
 
-	srv := server.NewSSHServer("users-integration", sshC.Address, sshC.User, sshC.KeyPath, sshC.KnownHostsPath, server.SSHOptions{})
+	srv := server.NewSSHServer("users-integration", sshC.Address, server.User{
+		Name:   sshC.User,
+		SSHKey: sshC.KeyPath,
+	}, sshC.KnownHostsPath, server.SSHOptions{})
 	logger := slog.New(slog.NewTextHandler(io.Discard, &slog.HandlerOptions{Level: slog.LevelInfo}))
 	runner := task.NewRunner(logger)
 
