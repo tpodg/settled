@@ -79,23 +79,12 @@ func permitRootLoginValue(t *testing.T, ctx context.Context, srv server.Server) 
 		t.Fatalf("read sshd_config failed: %v", err)
 	}
 
-	setting := ""
-	if err := taskutil.ScanLines(output, func(line string) {
-		trimmed := strings.TrimSpace(line)
-		if trimmed == "" || strings.HasPrefix(trimmed, "#") {
-			return
-		}
-		fields := strings.Fields(trimmed)
-		if len(fields) < 2 {
-			return
-		}
-		if strings.EqualFold(fields[0], "PermitRootLogin") {
-			setting = strings.ToLower(fields[1])
-		}
-	}); err != nil {
+	settings, err := taskutil.ParseKeyValueSettings(output)
+	if err != nil {
 		t.Fatalf("scan sshd_config failed: %v", err)
 	}
 
+	setting := settings["permitrootlogin"]
 	if setting == "" {
 		t.Fatalf("PermitRootLogin not found in sshd_config")
 	}

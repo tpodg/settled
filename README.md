@@ -9,6 +9,17 @@ Settled is a CLI tool designed to automate server configuration and hardening. I
 - **Multi-Server Support**: Easily target multiple servers in a single run.
 - **Extensible**: Built with a modular architecture to support future provisioning and configuration providers.
 
+### Feature Status
+
+Status: ✅ available, 🚧 planned
+
+- ✅ Create users
+- ✅ Disable root SSH login
+- ✅ Disable SSH password authentication
+- 🚧 Install and configure Fail2ban
+- 🚧 Install and configure firewall
+- ...
+
 ## Getting Started
 
 ### Installation

@@ -111,22 +111,9 @@ func isLoggedInAsRoot(ctx context.Context, s server.Server) (bool, error) {
 }
 
 func rootLoginDisabled(output string) (bool, error) {
-	setting := ""
-	err := taskutil.ScanLines(output, func(line string) {
-		trimmed := strings.TrimSpace(line)
-		if trimmed == "" || strings.HasPrefix(trimmed, "#") {
-			return
-		}
-		fields := strings.Fields(trimmed)
-		if len(fields) < 2 {
-			return
-		}
-		if strings.EqualFold(fields[0], "PermitRootLogin") {
-			setting = strings.ToLower(fields[1])
-		}
-	})
+	settings, err := taskutil.ParseKeyValueSettings(output)
 	if err != nil {
 		return false, err
 	}
-	return setting == "no", nil
+	return settings["permitrootlogin"] == "no", nil
 }

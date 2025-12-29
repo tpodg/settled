@@ -29,6 +29,25 @@ func LineSet(output string) (map[string]struct{}, error) {
 	return set, nil
 }
 
+// ParseKeyValueSettings reads "key value" lines, ignoring blank lines and # comments.
+func ParseKeyValueSettings(output string) (map[string]string, error) {
+	settings := make(map[string]string)
+	if err := ScanLines(output, func(line string) {
+		trimmed := strings.TrimSpace(line)
+		if trimmed == "" || strings.HasPrefix(trimmed, "#") {
+			return
+		}
+		fields := strings.Fields(trimmed)
+		if len(fields) < 2 {
+			return
+		}
+		settings[strings.ToLower(fields[0])] = strings.ToLower(fields[1])
+	}); err != nil {
+		return nil, err
+	}
+	return settings, nil
+}
+
 func ScanLines(output string, fn func(string)) error {
 	scanner := bufio.NewScanner(strings.NewReader(output))
 	buf := make([]byte, 0, 64*1024)

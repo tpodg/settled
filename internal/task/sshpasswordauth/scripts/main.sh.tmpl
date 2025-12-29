@@ -1,0 +1,33 @@
+{{- define "main" -}}
+set -e
+config={{ shellEscape .ConfigPath }}
+
+if [ ! -f "$config" ]; then
+  echo "sshd config not found: $config" >&2
+  exit 1
+fi
+
+set_config() {
+  key="$1"
+  value="$2"
+  if grep -qE "^[[:space:]]*#?[[:space:]]*$key[[:space:]]+" "$config"; then
+    sed -i -E "s/^[[:space:]]*#?[[:space:]]*$key[[:space:]].*/$key $value/" "$config"
+  else
+    printf '\n%s %s\n' "$key" "$value" >> "$config"
+  fi
+}
+
+set_config "PasswordAuthentication" "no"
+set_config "KbdInteractiveAuthentication" "no"
+set_config "ChallengeResponseAuthentication" "no"
+
+if command -v sshd >/dev/null 2>&1; then
+  sshd -t -f "$config"
+fi
+
+if command -v systemctl >/dev/null 2>&1; then
+  systemctl reload sshd || systemctl reload ssh || true
+elif command -v service >/dev/null 2>&1; then
+  service ssh reload || service sshd reload || true
+fi
+{{- end -}}
