@@ -1,8 +1,17 @@
 package sshpasswordauth
 
-import "testing"
+import (
+	"fmt"
+	"testing"
+
+	"github.com/tpodg/settled/internal/sshd"
+)
 
 func TestSSHPasswordAuthDisabled(t *testing.T) {
+	settingLine := func(key, value string) string {
+		return fmt.Sprintf("%s %s\n", key, value)
+	}
+
 	cases := []struct {
 		name  string
 		input string
@@ -15,47 +24,47 @@ func TestSSHPasswordAuthDisabled(t *testing.T) {
 		},
 		{
 			name:  "commented_only",
-			input: "# PasswordAuthentication no\n# KbdInteractiveAuthentication no\n",
+			input: fmt.Sprintf("# %s %s\n# %s %s\n", sshd.KeyPasswordAuthentication, sshd.ValueNo, sshd.KeyKbdInteractiveAuth, sshd.ValueNo),
 			want:  false,
 		},
 		{
 			name:  "disabled",
-			input: "PasswordAuthentication no\nKbdInteractiveAuthentication no\n",
+			input: settingLine(sshd.KeyPasswordAuthentication, sshd.ValueNo) + settingLine(sshd.KeyKbdInteractiveAuth, sshd.ValueNo),
 			want:  true,
 		},
 		{
 			name:  "password_enabled",
-			input: "PasswordAuthentication yes\nKbdInteractiveAuthentication no\n",
+			input: settingLine(sshd.KeyPasswordAuthentication, "yes") + settingLine(sshd.KeyKbdInteractiveAuth, sshd.ValueNo),
 			want:  false,
 		},
 		{
 			name:  "kbd_enabled",
-			input: "PasswordAuthentication no\nKbdInteractiveAuthentication yes\n",
+			input: settingLine(sshd.KeyPasswordAuthentication, sshd.ValueNo) + settingLine(sshd.KeyKbdInteractiveAuth, "yes"),
 			want:  false,
 		},
 		{
 			name:  "mixed_case_values",
-			input: "PasswordAuthentication No\nKbdInteractiveAuthentication NO\n",
+			input: settingLine(sshd.KeyPasswordAuthentication, "No") + settingLine(sshd.KeyKbdInteractiveAuth, "NO"),
 			want:  true,
 		},
 		{
 			name:  "inline_comment",
-			input: "PasswordAuthentication no # managed by settled\nKbdInteractiveAuthentication no\n",
+			input: fmt.Sprintf("%s %s # managed by settled\n%s %s\n", sshd.KeyPasswordAuthentication, sshd.ValueNo, sshd.KeyKbdInteractiveAuth, sshd.ValueNo),
 			want:  true,
 		},
 		{
 			name:  "challenge_response_fallback",
-			input: "PasswordAuthentication no\nChallengeResponseAuthentication no\n",
+			input: settingLine(sshd.KeyPasswordAuthentication, sshd.ValueNo) + settingLine(sshd.KeyChallengeResponseAuth, sshd.ValueNo),
 			want:  true,
 		},
 		{
 			name:  "kbd_overrides_challenge",
-			input: "PasswordAuthentication no\nChallengeResponseAuthentication no\nKbdInteractiveAuthentication yes\n",
+			input: settingLine(sshd.KeyPasswordAuthentication, sshd.ValueNo) + settingLine(sshd.KeyChallengeResponseAuth, sshd.ValueNo) + settingLine(sshd.KeyKbdInteractiveAuth, "yes"),
 			want:  false,
 		},
 		{
 			name:  "challenge_enabled_with_kbd_disabled",
-			input: "PasswordAuthentication no\nKbdInteractiveAuthentication no\nChallengeResponseAuthentication yes\n",
+			input: settingLine(sshd.KeyPasswordAuthentication, sshd.ValueNo) + settingLine(sshd.KeyKbdInteractiveAuth, sshd.ValueNo) + settingLine(sshd.KeyChallengeResponseAuth, "yes"),
 			want:  false,
 		},
 	}

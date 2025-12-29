@@ -21,9 +21,11 @@ type UserConfig struct {
 
 type Config map[string]UserConfig
 
+const TaskKey = "users"
+
 // Spec defines the user management task spec.
 func Spec() task.Spec {
-	return task.SpecFor("users", "users.yaml", buildUsersTasks)
+	return task.SpecFor(TaskKey, "users.yaml", buildUsersTasks)
 }
 
 func buildUsersTasks(cfg Config) ([]task.Task, error) {
@@ -164,6 +166,11 @@ type userScriptData struct {
 	SudoersFile    string
 	SudoersLine    string
 	AuthorizedKeys []string
+	SSHDirName     string
+	AuthFileName   string
+	SSHDirMode     string
+	AuthFileMode   string
+	SudoersMode    string
 }
 
 func (t *UserTask) scriptData() userScriptData {
@@ -174,6 +181,11 @@ func (t *UserTask) scriptData() userScriptData {
 		SudoersFile:    t.sudoersFile(),
 		SudoersLine:    t.sudoersLine(),
 		AuthorizedKeys: t.config.AuthorizedKeys,
+		SSHDirName:     SSHDirName,
+		AuthFileName:   AuthorizedKeysFileName,
+		SSHDirMode:     fileModeString(SSHDirMode),
+		AuthFileMode:   fileModeString(AuthorizedKeysMode),
+		SudoersMode:    fileModeString(SudoersFileMode),
 	}
 }
 
@@ -228,7 +240,7 @@ func lookupGroups(ctx context.Context, s server.Server, name string) (map[string
 }
 
 func (t *UserTask) sudoersFile() string {
-	return fmt.Sprintf("/etc/sudoers.d/settled-%s", taskutil.SanitizeFilename(t.name, "user"))
+	return SudoersFilePath(t.name)
 }
 
 func (t *UserTask) sudoersLine() string {
@@ -259,7 +271,7 @@ func (t *UserTask) authorizedKeysMatch(ctx context.Context, s server.Server, pre
 		return false, fmt.Errorf("empty home directory for %q", t.name)
 	}
 
-	authFile := fmt.Sprintf("%s/.ssh/authorized_keys", home)
+	authFile := AuthorizedKeysPath(home)
 	output, missing, err := taskutil.ReadFileIfExists(ctx, s, prefix, authFile)
 	if err != nil {
 		return false, fmt.Errorf("read authorized_keys for %q: %w", t.name, err)

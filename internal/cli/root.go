@@ -47,7 +47,7 @@ func Execute() {
 }
 
 func init() {
-	rootCmd.PersistentFlags().String("config", "", "config file (default is $HOME/.settled.yaml)")
+	rootCmd.PersistentFlags().String("config", "", fmt.Sprintf("config file (default is $HOME/%s)", config.DefaultConfigFileName))
 }
 
 func getApp(cmd *cobra.Command) *app.App {

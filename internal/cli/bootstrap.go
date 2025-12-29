@@ -74,7 +74,7 @@ var bootstrapCmd = &cobra.Command{
 			}
 
 			overrides := map[string]any{
-				"users": map[string]any{
+				users.TaskKey: map[string]any{
 					newUser: userCfg,
 				},
 			}
@@ -113,7 +113,7 @@ func resolveBootstrapKeys(ctx context.Context, srv server.Server, provided []str
 	}
 
 	userEsc := strutil.ShellEscape(loginUser)
-	script := fmt.Sprintf("set -e; home=$(getent passwd %s | cut -d: -f6); if [ -z \"$home\" ]; then home=/root; fi; cat \"$home/.ssh/authorized_keys\"", userEsc)
+	script := fmt.Sprintf("set -e; home=$(getent passwd %s | cut -d: -f6); if [ -z \"$home\" ]; then home=/root; fi; cat \"$home/%s/%s\"", userEsc, users.SSHDirName, users.AuthorizedKeysFileName)
 	output, err := srv.Execute(ctx, "sh -c "+strutil.ShellEscape(script))
 	if err != nil {
 		return nil, fmt.Errorf("read authorized_keys for %s (use --authorized-key to override): %w", loginUser, err)

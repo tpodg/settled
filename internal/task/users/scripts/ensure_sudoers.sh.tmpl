@@ -3,7 +3,7 @@
 {{- $sudoersFile := .SudoersFile -}}
 {{- $sudoersLine := .SudoersLine -}}
 printf '%s\n' {{ shellEscape $sudoersLine }} > {{ shellEscape $sudoersFile }}
-chmod 0440 {{ shellEscape $sudoersFile }}
+chmod {{ .SudoersMode }} {{ shellEscape $sudoersFile }}
 chown root:root {{ shellEscape $sudoersFile }}
 {{- end -}}
 {{- end -}}

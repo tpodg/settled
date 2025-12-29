@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"testing"
 	"time"
+
+	"github.com/tpodg/settled/internal/task/users"
 )
 
 func TestLoad(t *testing.T) {
@@ -14,7 +16,7 @@ func TestLoad(t *testing.T) {
 	}
 	defer os.RemoveAll(tmpDir)
 
-	configPath := filepath.Join(tmpDir, ".settled.yaml")
+	configPath := filepath.Join(tmpDir, DefaultConfigFileName)
 	configContent := `
 servers:
   - name: test-server
@@ -54,13 +56,13 @@ servers:
 			t.Fatalf("expected ssh hardening=true, got %+v", s.Tasks["ssh"])
 		}
 
-		users, ok := s.Tasks["users"].(map[string]any)
+		usersConfig, ok := s.Tasks[users.TaskKey].(map[string]any)
 		if !ok {
-			t.Fatalf("expected users config map, got %T", s.Tasks["users"])
+			t.Fatalf("expected users config map, got %T", s.Tasks[users.TaskKey])
 		}
-		testUser, ok := users["test_user"].(map[string]any)
+		testUser, ok := usersConfig["test_user"].(map[string]any)
 		if !ok || testUser["sudo"] != false {
-			t.Fatalf("expected test_user sudo=false, got %+v", users["test_user"])
+			t.Fatalf("expected test_user sudo=false, got %+v", usersConfig["test_user"])
 		}
 	})
 

@@ -1,8 +1,17 @@
 package rootlogin
 
-import "testing"
+import (
+	"fmt"
+	"testing"
+
+	"github.com/tpodg/settled/internal/sshd"
+)
 
 func TestRootLoginDisabled(t *testing.T) {
+	settingLine := func(key, value string) string {
+		return fmt.Sprintf("%s %s\n", key, value)
+	}
+
 	cases := []struct {
 		name  string
 		input string
@@ -15,37 +24,37 @@ func TestRootLoginDisabled(t *testing.T) {
 		},
 		{
 			name:  "commented_only",
-			input: "# PermitRootLogin no\n",
+			input: fmt.Sprintf("# %s %s\n", sshd.KeyPermitRootLogin, sshd.ValueNo),
 			want:  false,
 		},
 		{
 			name:  "disabled",
-			input: "PermitRootLogin no\n",
+			input: settingLine(sshd.KeyPermitRootLogin, sshd.ValueNo),
 			want:  true,
 		},
 		{
 			name:  "enabled",
-			input: "PermitRootLogin yes\n",
+			input: settingLine(sshd.KeyPermitRootLogin, "yes"),
 			want:  false,
 		},
 		{
 			name:  "mixed_case_value",
-			input: "PermitRootLogin No\n",
+			input: settingLine(sshd.KeyPermitRootLogin, "No"),
 			want:  true,
 		},
 		{
 			name:  "inline_comment",
-			input: "PermitRootLogin no # managed by settled\n",
+			input: fmt.Sprintf("%s %s # managed by settled\n", sshd.KeyPermitRootLogin, sshd.ValueNo),
 			want:  true,
 		},
 		{
 			name:  "leading_whitespace",
-			input: "  \tPermitRootLogin\tno\n",
+			input: fmt.Sprintf("  \t%s\t%s\n", sshd.KeyPermitRootLogin, sshd.ValueNo),
 			want:  true,
 		},
 		{
 			name:  "non_no_value",
-			input: "PermitRootLogin prohibit-password\n",
+			input: settingLine(sshd.KeyPermitRootLogin, "prohibit-password"),
 			want:  false,
 		},
 	}

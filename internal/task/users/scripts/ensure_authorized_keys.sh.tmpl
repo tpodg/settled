@@ -2,12 +2,12 @@
 {{- if .AuthorizedKeys -}}
 {{- $userEsc := shellEscape .Name -}}
 home_dir=$(getent passwd {{ $userEsc }} | cut -d: -f6)
-ssh_dir="$home_dir/.ssh"
-auth_file="$ssh_dir/authorized_keys"
+ssh_dir="$home_dir/{{ .SSHDirName }}"
+auth_file="$ssh_dir/{{ .AuthFileName }}"
 mkdir -p "$ssh_dir"
-chmod 700 "$ssh_dir"
+chmod {{ .SSHDirMode }} "$ssh_dir"
 touch "$auth_file"
-chmod 600 "$auth_file"
+chmod {{ .AuthFileMode }} "$auth_file"
 {{ range .AuthorizedKeys -}}
 if ! grep -qxF {{ shellEscape . }} "$auth_file"; then
   printf '%s\n' {{ shellEscape . }} >> "$auth_file"

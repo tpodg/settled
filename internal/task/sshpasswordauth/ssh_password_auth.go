@@ -6,21 +6,26 @@ import (
 	"strings"
 
 	"github.com/tpodg/settled/internal/server"
+	"github.com/tpodg/settled/internal/sshd"
 	"github.com/tpodg/settled/internal/strutil"
 	"github.com/tpodg/settled/internal/task"
 	"github.com/tpodg/settled/internal/task/taskutil"
 )
 
-const (
-	sshdConfigPath = "/etc/ssh/sshd_config"
+var (
+	passwordAuthKeyLower          = strings.ToLower(sshd.KeyPasswordAuthentication)
+	kbdInteractiveAuthKeyLower    = strings.ToLower(sshd.KeyKbdInteractiveAuth)
+	challengeResponseAuthKeyLower = strings.ToLower(sshd.KeyChallengeResponseAuth)
 )
 
 type Config struct {
 	Disable bool `yaml:"disable"`
 }
 
+const TaskKey = "ssh_password_auth"
+
 func Spec() task.Spec {
-	return task.SpecFor("ssh_password_auth", "ssh_password_auth.yaml", buildTasks)
+	return task.SpecFor(TaskKey, "ssh_password_auth.yaml", buildTasks)
 }
 
 func buildTasks(cfg Config) ([]task.Task, error) {
@@ -30,25 +35,20 @@ func buildTasks(cfg Config) ([]task.Task, error) {
 	return []task.Task{&DisableSSHPasswordAuthTask{}}, nil
 }
 
-type DisableSSHPasswordAuthTask struct{}
+type DisableSSHPasswordAuthTask struct {
+	configPath string
+}
 
 func (t *DisableSSHPasswordAuthTask) Name() string {
 	return "disable ssh password authentication"
 }
 
 func (t *DisableSSHPasswordAuthTask) NeedsExecution(ctx context.Context, s server.Server) (bool, error) {
-	prefix, err := taskutil.SudoPrefix(ctx, s)
+	path, output, err := sshd.ReadConfig(ctx, s)
 	if err != nil {
 		return false, err
 	}
-
-	output, missing, err := taskutil.ReadFileIfExists(ctx, s, prefix, sshdConfigPath)
-	if err != nil {
-		return false, err
-	}
-	if missing {
-		return false, fmt.Errorf("sshd config %s not found", sshdConfigPath)
-	}
+	t.configPath = path
 
 	disabled, err := sshPasswordAuthDisabled(output)
 	if err != nil {
@@ -60,6 +60,10 @@ func (t *DisableSSHPasswordAuthTask) NeedsExecution(ctx context.Context, s serve
 func (t *DisableSSHPasswordAuthTask) Execute(ctx context.Context, s server.Server) error {
 	prefix, err := taskutil.SudoPrefix(ctx, s)
 	if err != nil {
+		return err
+	}
+
+	if _, err := t.resolveConfigPath(ctx, s); err != nil {
 		return err
 	}
 
@@ -77,11 +81,26 @@ func (t *DisableSSHPasswordAuthTask) Execute(ctx context.Context, s server.Serve
 
 type sshPasswordAuthScriptData struct {
 	ConfigPath string
+	Settings   []sshSetting
+}
+
+type sshSetting struct {
+	Key   string
+	Value string
 }
 
 func (t *DisableSSHPasswordAuthTask) scriptData() sshPasswordAuthScriptData {
+	configPath := t.configPath
+	if configPath == "" {
+		configPath = sshd.DefaultConfigPath
+	}
 	return sshPasswordAuthScriptData{
-		ConfigPath: sshdConfigPath,
+		ConfigPath: configPath,
+		Settings: []sshSetting{
+			{Key: sshd.KeyPasswordAuthentication, Value: sshd.ValueNo},
+			{Key: sshd.KeyKbdInteractiveAuth, Value: sshd.ValueNo},
+			{Key: sshd.KeyChallengeResponseAuth, Value: sshd.ValueNo},
+		},
 	}
 }
 
@@ -93,26 +112,38 @@ func (t *DisableSSHPasswordAuthTask) renderScript() (string, error) {
 	return buf.String(), nil
 }
 
+func (t *DisableSSHPasswordAuthTask) resolveConfigPath(ctx context.Context, s server.Server) (string, error) {
+	if t.configPath != "" {
+		return t.configPath, nil
+	}
+	path, _, err := sshd.ReadConfig(ctx, s)
+	if err != nil {
+		return "", err
+	}
+	t.configPath = path
+	return path, nil
+}
+
 func sshPasswordAuthDisabled(output string) (bool, error) {
 	settings, err := taskutil.ParseKeyValueSettings(output)
 	if err != nil {
 		return false, err
 	}
 
-	passwordSetting := settings["passwordauthentication"]
-	kbdSetting := settings["kbdinteractiveauthentication"]
-	challengeSetting := settings["challengeresponseauthentication"]
+	passwordSetting := settings[passwordAuthKeyLower]
+	kbdSetting := settings[kbdInteractiveAuthKeyLower]
+	challengeSetting := settings[challengeResponseAuthKeyLower]
 
-	if passwordSetting != "no" {
+	if passwordSetting != sshd.ValueNo {
 		return false, nil
 	}
 	if kbdSetting == "" && challengeSetting == "" {
 		return false, nil
 	}
-	if kbdSetting != "" && kbdSetting != "no" {
+	if kbdSetting != "" && kbdSetting != sshd.ValueNo {
 		return false, nil
 	}
-	if challengeSetting != "" && challengeSetting != "no" {
+	if challengeSetting != "" && challengeSetting != sshd.ValueNo {
 		return false, nil
 	}
 	return true, nil

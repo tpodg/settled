@@ -17,9 +17,9 @@ set_config() {
   fi
 }
 
-set_config "PasswordAuthentication" "no"
-set_config "KbdInteractiveAuthentication" "no"
-set_config "ChallengeResponseAuthentication" "no"
+{{- range .Settings }}
+set_config {{ shellEscape .Key }} {{ shellEscape .Value }}
+{{ end }}
 
 if command -v sshd >/dev/null 2>&1; then
   sshd -t -f "$config"

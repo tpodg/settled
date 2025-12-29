@@ -33,7 +33,7 @@ func TestUsersTask_Integration(t *testing.T) {
 		key1 := "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMockKey1 alice@example"
 		key2 := "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMockKey2 alice@example"
 		overrides := map[string]any{
-			"users": map[string]any{
+			users.TaskKey: map[string]any{
 				"alice": map[string]any{
 					"sudo":            true,
 					"sudo_nopasswd":   true,
@@ -57,7 +57,7 @@ func TestUsersTask_Integration(t *testing.T) {
 
 	t.Run("updates groups and keys without sudo", func(t *testing.T) {
 		baseOverrides := map[string]any{
-			"users": map[string]any{
+			users.TaskKey: map[string]any{
 				"bob": map[string]any{
 					"groups": []string{"developers"},
 				},
@@ -77,7 +77,7 @@ func TestUsersTask_Integration(t *testing.T) {
 
 		key := "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMockKey3 bob@example"
 		updatedOverrides := map[string]any{
-			"users": map[string]any{
+			users.TaskKey: map[string]any{
 				"bob": map[string]any{
 					"groups":          []string{"developers", "ops"},
 					"authorized_keys": []string{key},
@@ -125,21 +125,21 @@ func assertUserInGroups(t *testing.T, ctx context.Context, srv server.Server, na
 func assertSudoersFile(t *testing.T, ctx context.Context, srv server.Server, name, line string) {
 	t.Helper()
 
-	path := fmt.Sprintf("/etc/sudoers.d/settled-%s", taskutil.SanitizeFilename(name, "user"))
+	path := users.SudoersFilePath(name)
 	output := tasktests.RunCommand(t, ctx, srv, fmt.Sprintf("cat %s", path))
 	if strings.TrimSpace(output) != line {
 		t.Fatalf("expected sudoers line %q, got %q", line, strings.TrimSpace(output))
 	}
 	perm := strings.TrimSpace(tasktests.RunCommand(t, ctx, srv, fmt.Sprintf("stat -c %%a %s", path)))
-	if perm != "440" {
-		t.Fatalf("expected sudoers perms 440, got %q", perm)
+	if perm != fmt.Sprintf("%o", users.SudoersFileMode) {
+		t.Fatalf("expected sudoers perms %s, got %q", fmt.Sprintf("%o", users.SudoersFileMode), perm)
 	}
 }
 
 func assertNoSudoersFile(t *testing.T, ctx context.Context, srv server.Server, name string) {
 	t.Helper()
 
-	path := fmt.Sprintf("/etc/sudoers.d/settled-%s", taskutil.SanitizeFilename(name, "user"))
+	path := users.SudoersFilePath(name)
 	tasktests.RunCommand(t, ctx, srv, fmt.Sprintf("test ! -f %s", path))
 }
 
@@ -150,7 +150,7 @@ func assertAuthorizedKeys(t *testing.T, ctx context.Context, srv server.Server, 
 	if home == "" {
 		t.Fatalf("expected home directory for %q, got empty", name)
 	}
-	authFile := fmt.Sprintf("%s/.ssh/authorized_keys", home)
+	authFile := users.AuthorizedKeysPath(home)
 	output := tasktests.RunCommand(t, ctx, srv, fmt.Sprintf("cat %s", authFile))
 	lines, err := taskutil.LineSet(output)
 	if err != nil {
@@ -165,14 +165,15 @@ func assertAuthorizedKeys(t *testing.T, ctx context.Context, srv server.Server, 
 		t.Fatalf("expected %d authorized_keys entries, got %d", len(keys), len(lines))
 	}
 	perm := strings.TrimSpace(tasktests.RunCommand(t, ctx, srv, fmt.Sprintf("stat -c %%a %s", authFile)))
-	if perm != "600" {
-		t.Fatalf("expected authorized_keys perms 600, got %q", perm)
+	if perm != fmt.Sprintf("%o", users.AuthorizedKeysMode) {
+		t.Fatalf("expected authorized_keys perms %s, got %q", fmt.Sprintf("%o", users.AuthorizedKeysMode), perm)
 	}
-	dirPerm := strings.TrimSpace(tasktests.RunCommand(t, ctx, srv, fmt.Sprintf("stat -c %%a %s/.ssh", home)))
-	if dirPerm != "700" {
-		t.Fatalf("expected .ssh perms 700, got %q", dirPerm)
+	sshDir := users.SSHDirPath(home)
+	dirPerm := strings.TrimSpace(tasktests.RunCommand(t, ctx, srv, fmt.Sprintf("stat -c %%a %s", sshDir)))
+	if dirPerm != fmt.Sprintf("%o", users.SSHDirMode) {
+		t.Fatalf("expected .ssh perms %s, got %q", fmt.Sprintf("%o", users.SSHDirMode), dirPerm)
 	}
-	owner := strings.TrimSpace(tasktests.RunCommand(t, ctx, srv, fmt.Sprintf("stat -c %%U:%%G %s/.ssh", home)))
+	owner := strings.TrimSpace(tasktests.RunCommand(t, ctx, srv, fmt.Sprintf("stat -c %%U:%%G %s", sshDir)))
 	expectedOwner := fmt.Sprintf("%s:%s", name, name)
 	if owner != expectedOwner {
 		t.Fatalf("expected .ssh owner %q, got %q", expectedOwner, owner)
@@ -186,6 +187,6 @@ func assertNoAuthorizedKeys(t *testing.T, ctx context.Context, srv server.Server
 	if home == "" {
 		t.Fatalf("expected home directory for %q, got empty", name)
 	}
-	authFile := fmt.Sprintf("%s/.ssh/authorized_keys", home)
+	authFile := users.AuthorizedKeysPath(home)
 	tasktests.RunCommand(t, ctx, srv, fmt.Sprintf("test ! -f %s", authFile))
 }

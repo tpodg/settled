@@ -9,7 +9,7 @@ import (
 
 func TestUsersSpecBuild(t *testing.T) {
 	overrides := map[string]any{
-		"users": map[string]any{
+		users.TaskKey: map[string]any{
 			"alice": map[string]any{
 				"sudo":          true,
 				"sudo_nopasswd": true,
@@ -38,7 +38,7 @@ func TestUsersSpecBuild(t *testing.T) {
 
 func TestUsersSpecBuildEmptyUser(t *testing.T) {
 	overrides := map[string]any{
-		"users": map[string]any{
+		users.TaskKey: map[string]any{
 			" ": map[string]any{
 				"sudo": true,
 			},

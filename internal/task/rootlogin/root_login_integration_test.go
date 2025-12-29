@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/tpodg/settled/internal/server"
+	"github.com/tpodg/settled/internal/sshd"
 	"github.com/tpodg/settled/internal/task"
 	"github.com/tpodg/settled/internal/task/rootlogin"
 	"github.com/tpodg/settled/internal/task/taskutil"
@@ -59,8 +60,8 @@ func TestRootLoginTask_Integration(t *testing.T) {
 		tasktests.WaitForLogin(t, ctx, srv, "testuser")
 		assertRootLoginBlocked(t, ctx, sshC, "root-login-after")
 		after := permitRootLoginValue(t, ctx, srv)
-		if after != "no" {
-			t.Fatalf("expected PermitRootLogin to be %q, got %q", "no", after)
+		if after != sshd.ValueNo {
+			t.Fatalf("expected PermitRootLogin to be %q, got %q", sshd.ValueNo, after)
 		}
 		tasktests.AssertTasksSatisfied(t, ctx, srv, tasks)
 	})
@@ -69,12 +70,7 @@ func TestRootLoginTask_Integration(t *testing.T) {
 func permitRootLoginValue(t *testing.T, ctx context.Context, srv server.Server) string {
 	t.Helper()
 
-	prefix, err := taskutil.SudoPrefix(ctx, srv)
-	if err != nil {
-		t.Fatalf("SudoPrefix failed: %v", err)
-	}
-
-	output, err := srv.Execute(ctx, prefix+"cat /etc/ssh/sshd_config")
+	_, output, err := sshd.ReadConfig(ctx, srv)
 	if err != nil {
 		t.Fatalf("read sshd_config failed: %v", err)
 	}
@@ -84,7 +80,7 @@ func permitRootLoginValue(t *testing.T, ctx context.Context, srv server.Server) 
 		t.Fatalf("scan sshd_config failed: %v", err)
 	}
 
-	setting := settings["permitrootlogin"]
+	setting := settings[strings.ToLower(sshd.KeyPermitRootLogin)]
 	if setting == "" {
 		t.Fatalf("PermitRootLogin not found in sshd_config")
 	}

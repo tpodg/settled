@@ -13,6 +13,8 @@ type Config struct {
 	Servers []ServerConfig `yaml:"servers"`
 }
 
+const DefaultConfigFileName = ".settled.yaml"
+
 type ServerConfig struct {
 	Name             string         `yaml:"name"`
 	Address          string         `yaml:"address"`
@@ -59,14 +61,14 @@ func findConfigFile(cfgFile string) (string, error) {
 	}
 
 	if home, err := os.UserHomeDir(); err == nil {
-		path := filepath.Join(home, ".settled.yaml")
+		path := filepath.Join(home, DefaultConfigFileName)
 		if _, err := os.Stat(path); err == nil {
 			return path, nil
 		}
 	}
 
-	if _, err := os.Stat(".settled.yaml"); err == nil {
-		return ".settled.yaml", nil
+	if _, err := os.Stat(DefaultConfigFileName); err == nil {
+		return DefaultConfigFileName, nil
 	}
 
 	return "", nil

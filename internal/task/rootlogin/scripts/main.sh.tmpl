@@ -1,16 +1,18 @@
 {{- define "main" -}}
 set -e
 config={{ shellEscape .ConfigPath }}
+setting_key={{ shellEscape .SettingKey }}
+setting_value={{ shellEscape .SettingValue }}
 
 if [ ! -f "$config" ]; then
   echo "sshd config not found: $config" >&2
   exit 1
 fi
 
-if grep -qE '^[[:space:]]*#?[[:space:]]*PermitRootLogin[[:space:]]+' "$config"; then
-  sed -i -E 's/^[[:space:]]*#?[[:space:]]*PermitRootLogin[[:space:]].*/PermitRootLogin no/' "$config"
+if grep -qE "^[[:space:]]*#?[[:space:]]*$setting_key[[:space:]]+" "$config"; then
+  sed -i -E "s/^[[:space:]]*#?[[:space:]]*$setting_key[[:space:]].*/$setting_key $setting_value/" "$config"
 else
-  printf '\nPermitRootLogin no\n' >> "$config"
+  printf '\n%s %s\n' "$setting_key" "$setting_value" >> "$config"
 fi
 
 if command -v sshd >/dev/null 2>&1; then
