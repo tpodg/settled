@@ -1,0 +1,11 @@
+# Default configuration for the fail2ban task.
+rules:
+  sshd:
+    enabled: true
+    filter: sshd
+    port: ssh
+    logpath:
+      - /var/log/auth.log
+    max_retry: 5
+    find_time: 30m
+    ban_time: 1h

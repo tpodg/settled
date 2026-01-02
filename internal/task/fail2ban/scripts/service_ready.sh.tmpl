@@ -1,0 +1,25 @@
+{{- define "service_ready" -}}
+service_name={{ shellEscape .ServiceName }}
+result_yes={{ shellEscape .ResultYes }}
+result_no={{ shellEscape .ResultNo }}
+
+if command -v systemctl >/dev/null 2>&1; then
+  if systemctl is-active --quiet "$service_name" && systemctl is-enabled --quiet "$service_name"; then
+    echo "$result_yes"
+    exit 0
+  fi
+  if systemctl is-system-running >/dev/null 2>&1; then
+    echo "$result_no"
+    exit 0
+  fi
+fi
+if command -v service >/dev/null 2>&1; then
+  if service "$service_name" status >/dev/null 2>&1; then
+    echo "$result_yes"
+  else
+    echo "$result_no"
+  fi
+else
+  echo "$result_yes"
+fi
+{{- end -}}

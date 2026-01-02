@@ -2,6 +2,7 @@ package catalog
 
 import (
 	"github.com/tpodg/settled/internal/task"
+	"github.com/tpodg/settled/internal/task/fail2ban"
 	"github.com/tpodg/settled/internal/task/rootlogin"
 	"github.com/tpodg/settled/internal/task/sshpasswordauth"
 	"github.com/tpodg/settled/internal/task/users"
@@ -13,5 +14,6 @@ func Builtins() []task.Spec {
 		users.Spec(),
 		rootlogin.Spec(),
 		sshpasswordauth.Spec(),
+		fail2ban.Spec(),
 	}
 }

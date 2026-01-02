@@ -16,7 +16,7 @@ Status: ✅ available, 🚧 planned
 - ✅ Create users
 - ✅ Disable root SSH login
 - ✅ Disable SSH password authentication
-- 🚧 Install and configure Fail2ban
+- ✅ Install and configure Fail2ban
 - 🚧 Install and configure firewall
 - ...
 

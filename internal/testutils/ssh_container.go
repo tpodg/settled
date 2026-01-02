@@ -16,6 +16,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/docker/docker/api/types/container"
 	"github.com/docker/go-connections/nat"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
@@ -32,14 +33,18 @@ type SSHContainer struct {
 }
 
 type SSHContainerOptions struct {
-	UserName     string
-	UserPassword string
-	SudoNoPasswd *bool
+	UserName       string
+	UserPassword   string
+	SudoNoPasswd   *bool
+	EnableNetAdmin bool
 }
 
 const (
 	defaultSSHStartupTimeout = 60 * time.Second
 	defaultSSHPort           = "22"
+	defaultSSHHandshakeWait  = 30 * time.Second
+	sshHandshakeRetryDelay   = 200 * time.Millisecond
+	sshHandshakeTimeout      = 5 * time.Second
 )
 
 var (
@@ -116,6 +121,11 @@ func SetupSSHContainerWithOptions(t *testing.T, ctx context.Context, opts SSHCon
 		ExposedPorts: []string{portSpec},
 		Env:          env,
 		WaitingFor:   wait.ForListeningPort(natPort).WithStartupTimeout(defaultSSHStartupTimeout),
+	}
+	if opts.EnableNetAdmin {
+		req.HostConfigModifier = func(hostConfig *container.HostConfig) {
+			hostConfig.CapAdd = append(hostConfig.CapAdd, "NET_ADMIN")
+		}
 	}
 
 	sshContainer, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
@@ -199,6 +209,29 @@ func sshImageContext() (string, error) {
 }
 
 func fetchHostKey(ctx context.Context, address string) (ssh.PublicKey, error) {
+	deadline := time.Now().Add(defaultSSHHandshakeWait)
+	var lastErr error
+	for {
+		hostKey, err := attemptHostKey(ctx, address)
+		if err == nil && hostKey != nil {
+			return hostKey, nil
+		}
+		if err != nil {
+			lastErr = err
+		}
+		if time.Now().After(deadline) {
+			if lastErr != nil {
+				return nil, fmt.Errorf("failed to capture host key: %w", lastErr)
+			}
+			return nil, errors.New("failed to capture host key")
+		}
+		if err := sleepWithContext(ctx, sshHandshakeRetryDelay); err != nil {
+			return nil, fmt.Errorf("failed to capture host key: %w", err)
+		}
+	}
+}
+
+func attemptHostKey(ctx context.Context, address string) (ssh.PublicKey, error) {
 	var hostKey ssh.PublicKey
 	config := &ssh.ClientConfig{
 		User: "testuser",
@@ -212,18 +245,36 @@ func fetchHostKey(ctx context.Context, address string) (ssh.PublicKey, error) {
 	}
 
 	var dialer net.Dialer
-	conn, err := dialer.DialContext(ctx, "tcp", address)
+	attemptCtx, cancel := context.WithTimeout(ctx, sshHandshakeTimeout)
+	defer cancel()
+
+	conn, err := dialer.DialContext(attemptCtx, "tcp", address)
 	if err != nil {
 		return nil, fmt.Errorf("failed to dial %s: %w", address, err)
 	}
 	defer conn.Close()
 
+	if err := conn.SetDeadline(time.Now().Add(sshHandshakeTimeout)); err != nil {
+		return nil, fmt.Errorf("set handshake deadline: %w", err)
+	}
 	_, _, _, err = ssh.NewClientConn(conn, address, config)
 	if hostKey == nil {
 		if err != nil {
-			return nil, fmt.Errorf("failed to capture host key: %w", err)
+			return nil, err
 		}
 		return nil, errors.New("failed to capture host key")
 	}
 	return hostKey, nil
+}
+
+func sleepWithContext(ctx context.Context, delay time.Duration) error {
+	timer := time.NewTimer(delay)
+	defer timer.Stop()
+
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-timer.C:
+		return nil
+	}
 }

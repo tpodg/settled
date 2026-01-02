@@ -46,6 +46,11 @@ if [ -f /etc/ssh/sshd_config ]; then
   printf '\nPubkeyAuthentication yes\nPasswordAuthentication yes\nPermitRootLogin yes\n' >> /etc/ssh/sshd_config
 fi
 
+if command -v rsyslogd >/dev/null 2>&1; then
+  mkdir -p /var/log
+  rsyslogd
+fi
+
 ssh-keygen -A
 
-exec /usr/sbin/sshd -D -e
+exec /usr/sbin/sshd -D
